@@ -4,7 +4,7 @@ import time
 import os
 import shutil
 #import urllib2
-#libraries for gdrive file upload
+#libraries for gdrive file operations
 from apiclient.discovery import build
 from apiclient.http import MediaFileUpload
 from oauth2client.client import OAuth2WebServerFlow
@@ -17,7 +17,9 @@ from selenium.webdriver.support import expected_conditions as EC
 
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
+
 #libraries for onedrive file upload
+import onedrive
 
 #libraries for dropbox file upload
 
@@ -38,6 +40,7 @@ class gdrivefile(file):
 	drive_service=None
 	filelist=[]
 	currentquota=None
+	downloadfilepath='/home/utkarsh/Downloads/Syncitall Goodle drive Downloads'
 
 	def upload(self):
 		if gdrivefile.authorized==False :
@@ -119,7 +122,7 @@ class gdrivefile(file):
 			gdrivefile.updatefilelist()
 		ref=[]	
 		sample=raw_input('enter the file name ').strip()
-		for gfile in gdrivefile.filelist:
+		for gfile in gdrivefile.filelist:#change here
 			if sample in gfile['title']:
 				if sample==gfile['title']:
 					return gfile
@@ -145,10 +148,23 @@ class gdrivefile(file):
 				if resp.status==200:
 					#print('Status',resp)
 					downloadedfile.write(content)
+					
+					src=os.getcwd()+'/'+file2download.get('title')
+					downloadaddress=raw_input('Where do you want to download file?enter address(d for default)').strip()
+
+					if downloadaddress!= "d" :
+						downloaddest=downloadaddress +'/'+file2download.get('title')
+						
+					else :
+						downloaddest=gdrivefile.downloadfilepath+'/'+file2download.get('title')
+						print(src)
+						print(downloaddest)
+					os.rename(src,downloaddest)	
+						
 					#src=r"C:\\Users\\windows\\Downloads\\" +  file2download.get('title')
 					#dest=os.getcwd()+r"\\" file2download.get('title')
 					#shutil.move(dest,src)	
-
+						
 					downloadedfile.close()
 					#os.rename(dest,src)
 					
@@ -169,31 +185,106 @@ class gdrivefile(file):
 
   			
 
-
-			 
-
-
-				
-
-		
-
-					
-
-
-
-		
-			  
-
 class odrivefile(file):
-	def upload(self):
+	filelist=None
+	currentquota=None
+	downloadfilepath='/home/utkarsh/Downloads/Syncitall Onedrive Downloads'
+	def upload(self):#problem-provided method does'nt allows upload of files with path name having spaces
 		#code for upload
-		pass
+		if odrivefile.authorized ==False:
+			odrivefile.authorize()
+			odrivefile.authorized=True
+		try :
+			 	
+			if ' ' not in self.address:#soln 1-no space in address upload the thing directly
+				os.system("onedrive-cli put "+self.address)
+				return
+			#else	
+			l=self.address.rfind('/')
+
+			name=self.address[l+1:].strip()
+			folder=self.address[:l+1]
+			name2=name.replace(" ","")
+			os.rename(folder+name,folder+name2)
+			self.address=folder+name2
+			print(name2)
+			src=self.address
+			print(src)
+			dest=os.getcwd()+'/'+name2
+			print(dest)
+		
+			os.rename(src,dest)
+			os.system("onedrive-cli put "+name2)
+			os.rename(dest,src)
+			return
+		except:
+			print("error in uploading one drive file")	
 
 	@staticmethod
 	def authorize():
-		pass
-		#code for authorization	
+		#code for authorization
+		'''
+		client_id='000000004015642C'
+		driver=webdriver.Firefox()
+		client_secret='w2A-Ass34UsVdS16PqibDAOmgTdddlTZ'
+		
+		oredirecturi= 'https://login.live.com/oauth20_desktop.srf'
+		startauturl='https://login.live.com/oauth20_authorize.srf?client_id='+client_id+'&scope='+ oscope+ '%20wl.basic&response_type=code&redirect_uri='+oredirecturi
+		driver.get(startauturl)
+		'''
+		oscope='onedrive.readwrite'#scope=how do u want to get access(PROBLEM HERE)=REQUESTED SCOPE DOES'NT MATCHES GIVEN SCOPE
+		driver=webdriver.Firefox()
+		authurl= 'https://login.live.com/oauth20_authorize.srf?scope='+oscope+'&redirect_uri=https%3A%2F%2Flogin.live.com%2Foauth20_desktop.srf&response_type=code&client_id=000000004015642C'
+		driver.get(authurl)
+		accept= WebDriverWait(driver, 120).until(EC.element_to_be_clickable((By.ID, "idBtn_Accept")))
+		accept.send_keys(Keys.RETURN)
+		endurl=str(driver.current_url)
+		driver.quit()
+		os.system("onedrive-cli auth "+ endurl)
+	@staticmethod	
+	def updatefilelist():
+		if odrivefile.authorized ==False:
+			odrivefile.authorize()
+			odrivefile.authorized=True		
 
+		odrivefile.filelist=os.system("onedrive-cli tree")
+		odrivefile.listupdated=True
+		#print(odrivefile.filelist)
+	@staticmethod
+	def getfile():
+		if odrivefile.listupdated==False:
+			odrivefile.updatefilelist()
+		oname=input('Enter file name or some reference').strip()
+		if oname in odrivefile.filelist:
+			return oname
+		else:
+			ref=[]
+			for entry in filelist:
+				if oname in entry:
+					ref.append(entry)
+			if ref==[]:
+				print("No match for your search")
+				odrivefile.getfile()
+			else:
+				print('May be you were looking for:')
+				for	x in ref:
+					print(x)
+					odrivefile.getfile()
+	@staticmethod
+	def printfilelist():
+		if odrivefile.listupdated==False:
+			odrivefile.updatefilelist()
+			odrivefile.listupdated=True	
+		print(odrivefile.filelist)		
+
+				
+			
+
+	@staticmethod
+	def download():
+		inpt=odrivefile.getfile()
+		os.system("odrivefile-cli get "+inpt)
+		
 class drobboxfile(file):
 	def upload(self):
 		#code for upload
@@ -204,16 +295,49 @@ class drobboxfile(file):
 		pass
 		#code for authorization	
 #testing the new update
-'''	
-add=raw_input("enter address of a file")
-f1=gdrivefile(add)
-f1.upload()
-#f1.upload()
+
+#google drive testing takes place here
+'''
+while True:
+	command=raw_input('which propoerty do you want to test for google drive :').strip()
+	if command=="download":
+		gdrivefile.download()
+	elif command=="upload":
+		add=raw_input("enter address of a file").strip()
+		gdrivefile.upload(add)
+	elif command =="updatefilelist":
+		gdrivefile.updatefilelist()
+		for name in gdrivefile.filelist:
+			print name['title']
+	elif command=="getquota":
+		gdrivefile.getquota()		
+		a=gdrivefile.currentquota
+		for data in a:
+			print(data)+ ' bytes'
+	elif command=="exit" :
+		break
+	else :
+		pass	
+
+
 '''
 
-#gdrivefile.download()
-gdrivefile.getquota()
-a=gdrivefile.currentquota
-for data in a:
-	print(data)+' bytes'
+#odrivefile.authorize()
+#os.system("onedrive-cli put Game of Thrones S05E05 1080p HDTV [G2G.fm].srt")
+
+		
+#one drive testing 
+#odrivefile.authorize()
+'''
+add=raw_input('enter address of file')
+a=odrivefile(add)
+a.upload()
+'''
+#odrivefile.getfilelist()
+#odrivefile.download()
+a=odrivefile.filelist
+for b in a:
+	print b
+
+
 
