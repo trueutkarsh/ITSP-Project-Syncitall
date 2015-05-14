@@ -20,6 +20,7 @@ from selenium.webdriver.common.keys import Keys
 
 #libraries for onedrive file upload
 import onedrive
+import commands #to read output
 
 #libraries for dropbox file upload
 
@@ -27,6 +28,7 @@ class file:#bas class file
 	authorized=False#whether authorization has taken place or not
 	listupdated=False#whether file list is updated or not
 	downloadfilepath=None
+	#distributed
 	def __init__(self,location):
 		self.address=location#address of file on pc
 		
@@ -245,45 +247,145 @@ class odrivefile(file):
 	def updatefilelist():
 		if odrivefile.authorized ==False:
 			odrivefile.authorize()
-			odrivefile.authorized=True		
+			odrivefile.authorized=True
 
-		odrivefile.filelist=os.system("onedrive-cli tree")
+		templist=commands.getstatusoutput('onedrive-cli ls')[1].strip()
+		odrivefile.filelist=templist.split('\n')
+		for x in range(len(odrivefile.filelist)):
+			odrivefile.filelist[x]=odrivefile.filelist[x][2:]
+
+		
 		odrivefile.listupdated=True
 		#print(odrivefile.filelist)
+
+
 	@staticmethod
-	def getfile():
+	def onedrivequota():
+		if odrivefile.authorized ==False:
+			odrivefile.authorize()
+			odrivefile.authorized=True
+		odrivefile.currentquota=commands.getstatusoutput('onedrive-cli quota')[1].strip()	
+
+		'''
+		FOR ONEDRIVE FILES GET FILE FUNCTION AND DOWNLOAD FUNCTIONS HAVE BEEN MERGED 
+		BECAUSE I COUDNT PASS THE VARIABLE BY REFERENCE.
+		FIND SOME METHOD TO DO SO AND 
+
+
+
+
+			@staticmethod
+			def getfile():
+				if odrivefile.listupdated==False:
+					odrivefile.updatefilelist()
+				oname=raw_input('Enter file name or some reference :').strip()
+				if oname in odrivefile.filelist:
+					filename=oname#make changes here
+				else:
+					ref=[]
+					for entry in odrivefile.filelist:
+						if oname in entry:
+							ref.append(entry)
+					if ref==[]:
+						print("No match for your search")
+					else:
+						print('May be you were looking for:')
+						for	x in ref:
+							print(x)
+					odrivefile.getfile(filename)			
+
+		'''
+	@staticmethod
+	def download():
 		if odrivefile.listupdated==False:
 			odrivefile.updatefilelist()
-		oname=input('Enter file name or some reference').strip()
+			odrivefile.listupdated=True
+		oname=raw_input('Enter file name or some reference :').strip()
 		if oname in odrivefile.filelist:
-			return oname
+			filename=oname#make changes here
+			print("this is the file name "+ filename)
+			downloadedfile=open(filename,"wb")#open the final file
+			ofile2download=raw_input("Enter address of file on one drive with format folder1/folder2..../filename").strip()
+			#make something so it can get to his file easily(presently avoid folders)
+			tempcontent=commands.getstatusoutput('onedrive-cli get '+ofile2download)
+			downloadedfile.write(tempcontent[1])
+			src=os.getcwd()+'/'+filename
+
+			d=raw_input('Where do you want to store the file.write address (d for default):')
+			if d=='d':
+				d=odrivefile.downloadfilepath
+			d=d+'/'+filename	
+			os.rename(src,d)
+			downloadedfile.close()			
+			
 		else:
 			ref=[]
-			for entry in filelist:
+			for entry in odrivefile.filelist:
 				if oname in entry:
 					ref.append(entry)
 			if ref==[]:
 				print("No match for your search")
-				odrivefile.getfile()
 			else:
 				print('May be you were looking for:')
 				for	x in ref:
 					print(x)
-					odrivefile.getfile()
+			odrivefile.download()
+
 	@staticmethod
 	def printfilelist():
 		if odrivefile.listupdated==False:
 			odrivefile.updatefilelist()
 			odrivefile.listupdated=True	
-		print(odrivefile.filelist)		
-
-				
-			
+		for ofile in odrivefile.filelist:
+			print(ofile+ str(type(ofile)))
+	@staticmethod
+	def getinfo(name):
+		
+		'''
+		namestrt=tempcontent.find('name:')
+		namend=tempcontent[namestrt:].find('\n')
+		name=tempcontent[namestrt:namend].strip()
+		'''
+		typestrt=tempcontent.find('type:')
+		typend=tempcontent[typestrt:].find('\n')
+		filetype=tempcontent[typestrt+5:typend].strip()
+		return filetype
 
 	@staticmethod
-	def download():
-		inpt=odrivefile.getfile()
-		os.system("odrivefile-cli get "+inpt)
+	def makefinallist(finallist,filelist,folderlist):#since strings are immutable they cannot be changed,list being mutable can be modified.
+		#eachelement of list is folder's name in hiearchial folder
+		#odrivefile.updatefilelist()
+		
+		for name in filelist:
+			name.replace(' ','\n')
+			tempcontent=commands.getstatusoutput('onedrive-cli info '+name)[1]
+			#print(tempcontent)
+			
+			typestrt=tempcontent.find('type:')
+			typend=tempcontent[typestrt:].find('\n')
+			filetype=tempcontent[typestrt+6:typend].strip()
+			print(filetype)
+			print('PROBLEM HERE')
+			if filetype=='file'	:
+				for x in folderlist:
+					folder=folder+x
+				tmpodrivefile=odrivefile(folder+name)
+				#y={name:tmpodrivefile}
+				finallist.update({name:tmpodrivefile})
+				return
+			elif filetype=='folder':
+				folderlist.append(name+'/')
+				templistcontent=commands.getstatusoutput('onedrive-cli ls ' + name)[1].strip()
+				templist=templistcontent.split('\n')
+				for x in range(len(templist)):
+					templist[x]=templist[x][2:]				
+				makefinallist(finallist,templist,folderlist)
+		if folderlist!=[]:	
+			folderlist.pop()		
+		
+							
+			
+
 		
 class drobboxfile(file):
 	def upload(self):
@@ -318,8 +420,6 @@ while True:
 		break
 	else :
 		pass	
-
-
 '''
 
 #odrivefile.authorize()
@@ -328,16 +428,43 @@ while True:
 		
 #one drive testing 
 #odrivefile.authorize()
-'''
-add=raw_input('enter address of file')
-a=odrivefile(add)
-a.upload()
-'''
+
 #odrivefile.getfilelist()
 #odrivefile.download()
-a=odrivefile.filelist
-for b in a:
-	print b
+#odrivefile.updatefilelist()
+#odrivefile.download()
+#odrivefile.oprintquota()
+'''
+odrivefile.updatefilelist()
+odrivefile.printfilelist()
+odrivefile.onedrivequota()
+print(odrivefile.currentquota)
+'''
+#f1=odrivefile(raw_input('Enter address of file'))
+#f1.upload()
+'''
+odrivefile.printfilelist()
+odrivefile.upload()
+
+'''
+odrivefile.updatefilelist()
+
+#os.system("onedrive-cli tree")
+finallist={}
+folder=[]
+odrivefile.makefinallist(finallist,odrivefile.filelist,folder)
+print(finallist)
+
+
+#print(templink)
+'''
+for line in templink:
+	print(line+'we did it')
+'''
+#code for getting link of a file in onedrive
+'''-----------------------------------------------MAIN PROGRAM AFTERWARDS--------------------------------------------------------------------------------'''
+
+'''--------------------------------------------------------------------------------------------------------------------------------------------------------'''
 
 
 
