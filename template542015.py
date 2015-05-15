@@ -59,6 +59,7 @@ class gdrivefile(file):
 		try:
 			file = gdrivefile.drive_service.files().insert(body=body, media_body=media_body).execute()
 			#iINSERT CODE TO UPDATE FILE LIST
+			gdrivefile.updatefilelist()
 		except errors.HttpError,error :
 			print("error in uploading file")	
 
@@ -118,6 +119,7 @@ class gdrivefile(file):
 			except errors.HttpError:
 				print("error in udating list")
 				break
+	'''			
 	@staticmethod
 	def getfile():
 		if gdrivefile.listupdated==False:
@@ -133,12 +135,17 @@ class gdrivefile(file):
 		for name in ref:
 			print(name)	
 		return None				
-
-
-
-	@staticmethod					
-	def download():
-		file2download=gdrivefile.getfile()
+	'''	
+	#NO USE OF IT SINCE
+					
+	def download(self):
+		if gdrivefile.listupdated==False:
+			gdrivefile.updatefilelist()
+		gdrivefile.listupdated=True	
+		for a in gdrivefile.filelist:
+			if a['title']==self.address:
+				file2download=a
+				break
 		if file2download==None:
 			return
 		else:
@@ -182,6 +189,13 @@ class gdrivefile(file):
 			gdrivefile.authorized=True
 		about=gdrivefile.drive_service.about().get().execute()	
 		gdrivefile.currentquota=[about['quotaBytesTotal'],about['quotaBytesUsed']]
+	@staticmethod
+	def makefinallist(finallist,filelist):
+
+		for name in filelist:
+			tmpgdrivefile=gdrivefile(str(name['title']))
+			finallist.update({str(name['title']):tmpgdrivefile})
+		
 				
 				
 
@@ -198,16 +212,17 @@ class odrivefile(file):
 			odrivefile.authorized=True
 		try :
 			 	
-			if ' ' not in self.address:#soln 1-no space in address upload the thing directly
-				os.system("onedrive-cli put "+self.address)
-				return
-			#else	
+			#if ' ' not in self.address:#soln 1-no space in address upload the thing directly
+			os.system("onedrive-cli put "+self.address+"'")
+			#	return
+			#else
+			'''	
 			l=self.address.rfind('/')
 
 			name=self.address[l+1:].strip()
 			folder=self.address[:l+1]
-			name2=name.replace(" ","")
-			os.rename(folder+name,folder+name2)
+			name2=name.replace(" ","\ ")
+			#os.rename(folder+name,folder+name2)
 			self.address=folder+name2
 			print(name2)
 			src=self.address
@@ -219,7 +234,9 @@ class odrivefile(file):
 			os.system("onedrive-cli put "+name2)
 			os.rename(dest,src)
 			return
-		except:
+			'''
+		except Exception ,e:
+			print(str(e))
 			print("error in uploading one drive file")	
 
 	@staticmethod
@@ -295,29 +312,37 @@ class odrivefile(file):
 					odrivefile.getfile(filename)			
 
 		'''
-	@staticmethod
-	def download():
+	#@staticmethod
+	#CHANGES TO BE MADE HERE
+	def download(self):
 		if odrivefile.listupdated==False:
 			odrivefile.updatefilelist()
 			odrivefile.listupdated=True
+		'''	
 		oname=raw_input('Enter file name or some reference :').strip()
 		if oname in odrivefile.filelist:
 			filename=oname#make changes here
 			print("this is the file name "+ filename)
-			downloadedfile=open(filename,"wb")#open the final file
-			ofile2download=raw_input("Enter address of file on one drive with format folder1/folder2..../filename").strip()
-			#make something so it can get to his file easily(presently avoid folders)
-			tempcontent=commands.getstatusoutput('onedrive-cli get '+ofile2download)
-			downloadedfile.write(tempcontent[1])
-			src=os.getcwd()+'/'+filename
-
-			d=raw_input('Where do you want to store the file.write address (d for default):')
-			if d=='d':
-				d=odrivefile.downloadfilepath
-			d=d+'/'+filename	
-			os.rename(src,d)
-			downloadedfile.close()			
-			
+		'''	
+		if '/' in self.address:
+			i=self.address.rfind('/')
+			filename=self.address[i+1:]
+		else:
+			filename=self.address	
+		downloadedfile=open(filename,"wb")#open the final file
+		#ofile2download=raw_input("Enter address of file on one drive with format folder1/folder2..../filename").strip()
+		ofile2download=self.address
+		#make something so it can get to his file easily(presently avoid folders)
+		tempcontent=commands.getstatusoutput("onedrive-cli get '"+ofile2download+"'")
+		downloadedfile.write(tempcontent[1])
+		src=os.getcwd()+'/'+filename
+		d=raw_input('Where do you want to store the file.write address (d for default):')
+		if d=='d':
+			d=odrivefile.downloadfilepath
+		d=d+'/'+filename	
+		os.rename(src,d)
+		downloadedfile.close()			
+		'''	
 		else:
 			ref=[]
 			for entry in odrivefile.filelist:
@@ -330,14 +355,14 @@ class odrivefile(file):
 				for	x in ref:
 					print(x)
 			odrivefile.download()
-
+		'''	
 	@staticmethod
 	def printfilelist():
 		if odrivefile.listupdated==False:
 			odrivefile.updatefilelist()
 			odrivefile.listupdated=True	
 		for ofile in odrivefile.filelist:
-			print(ofile+ str(type(ofile)))
+			print(ofile)
 	@staticmethod
 	def getinfo(name):
 		
@@ -357,29 +382,38 @@ class odrivefile(file):
 		#odrivefile.updatefilelist()
 		
 		for name in filelist:
-			name.replace(' ','\n')
-			tempcontent=commands.getstatusoutput('onedrive-cli info '+name)[1]
+			#name.replace(' ','\ ')
+			tempcontent=commands.getstatusoutput("onedrive-cli info '"+name+"'")[1]
 			#print(tempcontent)
 			
 			typestrt=tempcontent.find('type:')
 			typend=tempcontent[typestrt:].find('\n')
-			filetype=tempcontent[typestrt+6:typend].strip()
+			filetype=tempcontent[typestrt+6:typestrt+typend].strip()
 			print(filetype)
-			print('PROBLEM HERE')
-			if filetype=='file'	:
-				for x in folderlist:
-					folder=folder+x
-				tmpodrivefile=odrivefile(folder+name)
-				#y={name:tmpodrivefile}
-				finallist.update({name:tmpodrivefile})
-				return
-			elif filetype=='folder':
+			#print('PROBLEM HERE')			
+			if filetype=='folder' or filetype=='album':
 				folderlist.append(name+'/')
-				templistcontent=commands.getstatusoutput('onedrive-cli ls ' + name)[1].strip()
+				for x in folderlist:
+					foldername=foldername+x
+				print(foldername)
+				foldername.strip()	
+					
+				templistcontent=commands.getstatusoutput("onedrive-cli ls '" + foldername[:-1] +"'")[1]
 				templist=templistcontent.split('\n')
 				for x in range(len(templist)):
-					templist[x]=templist[x][2:]				
-				makefinallist(finallist,templist,folderlist)
+					templist[x]=templist[x][2:]
+				for x in templist:
+					print(foldername+x)					
+				odrivefile.makefinallist(finallist,templist,folderlist)
+			else:
+				foldername=''
+				for x in folderlist:
+					foldername=foldername+x
+				tmpodrivefile=odrivefile(foldername+name)
+				#y={name:tmpodrivefile}
+				finallist.update({name:tmpodrivefile})
+								
+					
 		if folderlist!=[]:	
 			folderlist.pop()		
 		
@@ -420,6 +454,7 @@ while True:
 		break
 	else :
 		pass	
+
 '''
 
 #odrivefile.authorize()
@@ -439,28 +474,47 @@ odrivefile.updatefilelist()
 odrivefile.printfilelist()
 odrivefile.onedrivequota()
 print(odrivefile.currentquota)
-'''
-#f1=odrivefile(raw_input('Enter address of file'))
-#f1.upload()
-'''
-odrivefile.printfilelist()
-odrivefile.upload()
 
+f1=odrivefile(raw_input('Enter address of file'))
+f1.upload()
+
+
+#odrivefile.printfilelist()
+#odrivefile.upload()
+
+
+
+
+os.system("onedrive-cli ls 'Documents/ITSP/'")
 '''
 odrivefile.updatefilelist()
-
-#os.system("onedrive-cli tree")
+gdrivefile.updatefilelist()
 finallist={}
 folder=[]
 odrivefile.makefinallist(finallist,odrivefile.filelist,folder)
-print(finallist)
-
+gdrivefile.makefinallist(finallist,gdrivefile.filelist)
+for a,b in finallist.items():
+	print(a,b)
+filename=''	
+while True:	
+	filename=raw_input("Enter filename(exit to exit)").strip()
+	if filename=='exit':
+		break
+	finallist[filename].download()	
+'''
+gdrivefile.updatefilelist()
+for x in gdrivefile.filelist:
+	print x['title']
 
 #print(templink)
-'''
+
 for line in templink:
 	print(line+'we did it')
-'''
+'''	
+'''-------------------------WRITE BUGS HERE-------------------------------------------
+1.File name anywhere should not contain "'"	
+
+-----------------------------------------------------------------------------------'''
 #code for getting link of a file in onedrive
 '''-----------------------------------------------MAIN PROGRAM AFTERWARDS--------------------------------------------------------------------------------'''
 
