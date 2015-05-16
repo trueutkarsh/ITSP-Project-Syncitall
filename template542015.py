@@ -3,6 +3,7 @@ import pprint
 import time
 import os
 import shutil
+import ntpath
 #import urllib2
 #libraries for gdrive file operations
 from apiclient.discovery import build
@@ -14,15 +15,22 @@ from apiclient import http
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
-
+#libraries for address box
+import Tkinter
+import tkFileDialog
 #libraries for onedrive file upload
 import onedrive
 import commands #to read output
 
 #libraries for dropbox file upload
+
+
+def main():
+    Tkinter.Tk().withdraw() # Close the root window
+    in_path = tkFileDialog.askdirectory()
+    return in_path
 
 class file:#bas class file
 	authorized=False#whether authorization has taken place or not
@@ -84,7 +92,7 @@ class gdrivefile(file):
 		driver.get(authorize_url)
 		#login=driver.find_element_by_name("signIn")
 		#login.send_keys(Keys.RETURN)
-		accept= WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.ID, "submit_approve_access")))
+		accept= WebDriverWait(driver, 120).until(EC.element_to_be_clickable((By.ID, "submit_approve_access")))
 		accept.send_keys(Keys.RETURN)
     	#accept.click()
 		a=driver.find_element_by_id("code")
@@ -159,7 +167,7 @@ class gdrivefile(file):
 					downloadedfile.write(content)
 					
 					src=os.getcwd()+'/'+file2download.get('title')
-					downloadaddress=raw_input('Where do you want to download file?enter address(d for default)').strip()
+					downloadaddress=main()#CHANGE HERE
 
 					if downloadaddress!= "d" :
 						downloaddest=downloadaddress +'/'+file2download.get('title')
@@ -336,7 +344,7 @@ class odrivefile(file):
 		tempcontent=commands.getstatusoutput("onedrive-cli get '"+ofile2download+"'")
 		downloadedfile.write(tempcontent[1])
 		src=os.getcwd()+'/'+filename
-		d=raw_input('Where do you want to store the file.write address (d for default):')
+		d=main()
 		if d=='d':
 			d=odrivefile.downloadfilepath
 		d=d+'/'+filename	
@@ -430,9 +438,30 @@ class drobboxfile(file):
 	def authorize():
 		pass
 		#code for authorization	
+
+class FinalList:
+	def __init__(self):
+		self.finallist={}
+	def update(self):
+		gdrivefile.updatefilelist()
+		odrivefile.updatefilelist()
+		folder=[]
+		odrivefile.makefinallist(self.finallist,odrivefile.filelist,folder)
+		gdrivefile.makefinallist(self.finallist,gdrivefile.filelist)
+	def printaddress(self):
+		for a,b in self.finallist.items():
+			print(a,b.address)
+	def download(self):
+		filename=raw_input("Name of file").strip()
+		self.finallist[filename].download()		
+					
+
+
+			
 #testing the new update
 
 #google drive testing takes place here
+
 '''
 while True:
 	command=raw_input('which propoerty do you want to test for google drive :').strip()
@@ -469,6 +498,18 @@ while True:
 #odrivefile.updatefilelist()
 #odrivefile.download()
 #odrivefile.oprintquota()
+File=FinalList()
+File.update()
+#File.printaddress()
+command='download'
+while  command=='download':
+	File.download()
+	command=raw_input("Enter command").strip()
+
+	
+
+
+
 '''
 odrivefile.updatefilelist()
 odrivefile.printfilelist()
@@ -486,7 +527,7 @@ f1.upload()
 
 
 os.system("onedrive-cli ls 'Documents/ITSP/'")
-'''
+
 odrivefile.updatefilelist()
 gdrivefile.updatefilelist()
 finallist={}
@@ -501,7 +542,7 @@ while True:
 	if filename=='exit':
 		break
 	finallist[filename].download()	
-'''
+
 gdrivefile.updatefilelist()
 for x in gdrivefile.filelist:
 	print x['title']
@@ -511,8 +552,12 @@ for x in gdrivefile.filelist:
 for line in templink:
 	print(line+'we did it')
 '''	
-'''-------------------------WRITE BUGS HERE-------------------------------------------
+'''-------------------------WRITE BUGS/'IMPROVEMENT TO BE MADE' HERE-------------------------------------------
 1.File name anywhere should not contain "'"	
+2.If any change has been made to such as download or upload of a file,filelist should be update there for that file.not complete
+update file should be called.
+3.There should be folder structures in UI.Files should be shown to be in folders and stuff.
+
 
 -----------------------------------------------------------------------------------'''
 #code for getting link of a file in onedrive
