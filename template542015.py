@@ -1,3 +1,4 @@
+import dropbox
 import httplib2
 import pprint
 import time
@@ -24,13 +25,21 @@ import tkFileDialog
 import onedrive
 import commands #to read output
 
-#libraries for dropbox file upload
-
-
+#libraries for Tkinter dialog box
+import Tkinter
+import tkFileDialog
+# main() function gets file directory through dialog box. 
 def main():
+ 
     Tkinter.Tk().withdraw() # Close the root window
     in_path = tkFileDialog.askdirectory()
     return in_path
+# main2() gets file name through dialog box.
+def main2():
+	Tkinter.Tk().withdraw() # Close the root window
+        in_path = tkFileDialog.askopenfile()
+        return in_path.name	
+
 
 class file:#bas class file
 	authorized=False#whether authorization has taken place or not
@@ -60,7 +69,7 @@ class gdrivefile(file):
 		FILENAME = self.address
 		media_body = MediaFileUpload(FILENAME, mimetype='', resumable=True)
 		body = {
-		  'title': FILENAME,
+		  'title': ntpath.basename(FILENAME),
 		  'description': '',
 		  'mimeType': ''
 		}
@@ -88,17 +97,28 @@ class gdrivefile(file):
                            redirect_uri=REDIRECT_URI)
 		authorize_url = flow.step1_get_authorize_url()
 		#print 'Go to the following link in your browser: ' + authorize_url
-		driver=webdriver.Firefox()#depends on your browser
-		driver.get(authorize_url)
-		#login=driver.find_element_by_name("signIn")
-		#login.send_keys(Keys.RETURN)
-		accept= WebDriverWait(driver, 120).until(EC.element_to_be_clickable((By.ID, "submit_approve_access")))
-		accept.send_keys(Keys.RETURN)
-    	#accept.click()
-		a=driver.find_element_by_id("code")
 
-		code=a.get_attribute('value')
-		driver.quit()
+		try:		
+			driver=webdriver.Firefox()#depends on your browser
+						
+			driver.get(authorize_url)
+			cookies=driver.get_cookies()
+			for cookie in cookies:
+				driver.add_cookie(cookie)			
+			#login=driver.find_element_by_name("signIn")
+			#login.send_keys(Keys.RETURN)
+			accept= WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.ID, "submit_approve_access")))
+			accept.send_keys(Keys.RETURN)
+    			#accept.click()
+			a=driver.find_element_by_id("code")
+                
+			code=a.get_attribute('value')		
+			driver.quit()
+			gdrivefile.authorized=True
+		except:
+			print "Could not authorize to Google Drive"
+			return None
+#3>>>>>>> origin/master
 		#code = raw_input('Enter verification code: ').strip()#change here
 		credentials = flow.step2_exchange(code)
 
@@ -110,8 +130,7 @@ class gdrivefile(file):
 	@staticmethod
 	def updatefilelist():#information about files on your drive
 		if gdrivefile.authorized==False :
-			gdrivefile.authorize()
-			gdrivefile.authorized=True
+			return None
 		page_token = None
 		while True:
 			try:
@@ -165,25 +184,16 @@ class gdrivefile(file):
 				if resp.status==200:
 					#print('Status',resp)
 					downloadedfile.write(content)
-					
-					src=os.getcwd()+'/'+file2download.get('title')
-					downloadaddress=main()#CHANGE HERE
-
-					if downloadaddress!= "d" :
-						downloaddest=downloadaddress +'/'+file2download.get('title')
-						
-					else :
-						downloaddest=gdrivefile.downloadfilepath+'/'+file2download.get('title')
-						print(src)
-						print(downloaddest)
-					os.rename(src,downloaddest)	
-						
-					#src=r"C:\\Users\\windows\\Downloads\\" +  file2download.get('title')
-					#dest=os.getcwd()+r"\\" file2download.get('title')
+					add2=main()
+					src=add2+"/"+ file2download.get('title')
+					dest=os.getcwd()+"/"+ file2download.get('title')
+#>>>>>>> origin/master
 					#shutil.move(dest,src)	
-						
+
+
 					downloadedfile.close()
 					#os.rename(dest,src)
+					shutil.move(dest,src)
 					
 				else :
 					print("An error occured in downloading")
@@ -201,7 +211,7 @@ class gdrivefile(file):
 	def makefinallist(finallist,filelist):
 
 		for name in filelist:
-			tmpgdrivefile=gdrivefile(str(name['title']))
+			tmpgdrivefile=gdrivefile(name['title'])
 			finallist.update({str(name['title']):tmpgdrivefile})
 		
 				
@@ -221,7 +231,7 @@ class odrivefile(file):
 		try :
 			 	
 			#if ' ' not in self.address:#soln 1-no space in address upload the thing directly
-			os.system("onedrive-cli put "+self.address+"'")
+			os.system("onedrive-cli put '"+self.address+"'")
 			#	return
 			#else
 			'''	
@@ -268,6 +278,7 @@ class odrivefile(file):
 		endurl=str(driver.current_url)
 		driver.quit()
 		os.system("onedrive-cli auth "+ endurl)
+		odrivefile.authorized=True
 	@staticmethod	
 	def updatefilelist():
 		if odrivefile.authorized ==False:
@@ -429,22 +440,117 @@ class odrivefile(file):
 			
 
 		
-class drobboxfile(file):
+class dropboxfile(file):
+	client=None
+	account=None
 	def upload(self):
+		
+		if dropboxfile.authorized==False :
+			dropboxfile.authorize()
+			dropboxfile.authorized=True
 		#code for upload
-		pass
+		
+		f = open(self.address, 'rb')
+		response = dropboxfile.client.put_file(ntpath.basename(self.address), f)
 
 	@staticmethod
 	def authorize():
-		pass
+		app_key = '0iwzfwq43mcvirb'
+		app_secret = 'ivcutlb76xs5cbr'
+	
+		flow = dropbox.client.DropboxOAuth2FlowNoRedirect(app_key, app_secret)
+		authorize_url = flow.start()
+		try:
+			driver=webdriver.Firefox()#depends on your browser
+			
+			driver.get(authorize_url)
+			#login=driver.find_element_by_name("signIn")
+			#login.send_keys(Keys.RETURN)
+			accept= WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.NAME, "allow_access")))
+			accept.send_keys(Keys.RETURN)
+    			#accept.click()
+			code=driver.find_element_by_id("auth-code").get_attribute("innerHTML")
+                
+				
+			driver.quit()
+			dropboxfile.authorized=True
+		except:
+			print "Could not authorize to dropbox"
+			return None
+		dropbox.access_token, dropbox.user_id = flow.finish(code)
+		dropboxfile.client = dropbox.client.DropboxClient(dropbox.access_token)
+		dropboxfile.account=dropboxfile.client.account_info()
 		#code for authorization	
+	
+	def download(self):
+		if dropboxfile.authorized==False :
+			return None
+		try:		
+			f, metadata = dropboxfile.client.get_file_and_metadata(self.address)
+		except TypeError:
+			file.found=0
+		add=main()
+		
+		out = open(add+"/"+ntpath.basename(self.address), 'wb')
+		out.write(f.read())
+		out.close()
+	@staticmethod
+	def makefilelist(add,finallist):
+		if dropboxfile.authorized==False:
+			return None
+		folder_metadata = dropboxfile.client.metadata(add)
+		#print folder_metadata
 
+		for x in folder_metadata['contents']:
+			if x['is_dir']==False:
+				
+				
+				tmpdrpfile=dropboxfile(x['path'])
+				finallist.update({ntpath.basename(x['path']):tmpdrpfile})
+					
+			else:
+				add=x['path']+"/"
+				dropboxfile.makefilelist(add,finallist)
+
+	@staticmethod
+	def quota():
+		if dropboxfile.authorized==None:
+			print "Dropbox not authorized"
+			return None
+		else:
+			print ("shared : " +str(dropboxfile.account['quota_info']['shared']))
+			print ("quota : " +str(dropboxfile.account['quota_info']['quota']))
+			print ("normal : " +str(dropboxfile.account['quota_info']['normal']))	
+	
+	@staticmethod
+	def printlist(add):
+		if dropboxfile.authorized==False:
+			return None
+		folder_metadata = dropboxfile.client.metadata(add)
+		#print folder_metadata
+
+		for x in folder_metadata['contents']:
+			if x['is_dir']==False:
+				print ntpath.basename(x['path'])
+				
+				
+					
+			else:
+				add=x['path']+"/"
+				dropboxfile.printlist(add)
+		
+		
 class FinalList:
 	def __init__(self):
 		self.finallist={}
 	def update(self):
+		gdrivefile.authorize()
+		odrivefile.authorize()
+		dropboxfile.authorize()
 		gdrivefile.updatefilelist()
 		odrivefile.updatefilelist()
+		add='/'
+		dropboxfile.makefilelist(add,self.finallist)
 		folder=[]
 		odrivefile.makefinallist(self.finallist,odrivefile.filelist,folder)
 		gdrivefile.makefinallist(self.finallist,gdrivefile.filelist)
@@ -457,7 +563,6 @@ class FinalList:
 					
 
 
-			
 #testing the new update
 
 #google drive testing takes place here
@@ -498,15 +603,16 @@ while True:
 #odrivefile.updatefilelist()
 #odrivefile.download()
 #odrivefile.oprintquota()
+'''----FUNCTION TO CHECK DOWNLOAD FROM COMMON DATA BASE.JUST WRITE FILE NAME OF FILE 2 DOWNLOAD FROM ANY OF THE THREE DRIVES'''
 File=FinalList()
 File.update()
-#File.printaddress()
+#File.printaddress()-TO PRINT FINAL LIST  UNCOMMENT THIS LINE
 command='download'
 while  command=='download':
 	File.download()
 	command=raw_input("Enter command").strip()
 
-	
+'''----PRESENTLY UPLOAD IS DRIVE SPECIFIC MAKE AN INSTANCE OF RESPECTIVE DRIVE CLASS AND INITIALIZE IT WITH ITS FILE ADDRESS ON PC'''	
 
 
 
@@ -527,31 +633,43 @@ f1.upload()
 
 
 os.system("onedrive-cli ls 'Documents/ITSP/'")
+<<<<<<< HEAD
 
+=======
+'''
+'''
+gdrivefile.authorize()
+dropboxfile.authorize()
+
+odrivefile.authorize()
+>>>>>>> origin/master
 odrivefile.updatefilelist()
 gdrivefile.updatefilelist()
 finallist={}
 folder=[]
+#Code to print file list of dropbox. 
+#dropboxfile.printlist("/")
 odrivefile.makefinallist(finallist,odrivefile.filelist,folder)
 gdrivefile.makefinallist(finallist,gdrivefile.filelist)
+dropboxfile.makefilelist(add,finallist)
 for a,b in finallist.items():
-	print(a,b)
+	print(a,b.address)
 filename=''	
-while True:	
+while filename!='exit':	
 	filename=raw_input("Enter filename(exit to exit)").strip()
-	if filename=='exit':
-		break
 	finallist[filename].download()	
 
 gdrivefile.updatefilelist()
 for x in gdrivefile.filelist:
 	print x['title']
 
+<<<<<<< HEAD
 #print(templink)
 
 for line in templink:
 	print(line+'we did it')
 '''	
+	
 '''-------------------------WRITE BUGS/'IMPROVEMENT TO BE MADE' HERE-------------------------------------------
 1.File name anywhere should not contain "'"	
 2.If any change has been made to such as download or upload of a file,filelist should be update there for that file.not complete
@@ -564,6 +682,3 @@ update file should be called.
 '''-----------------------------------------------MAIN PROGRAM AFTERWARDS--------------------------------------------------------------------------------'''
 
 '''--------------------------------------------------------------------------------------------------------------------------------------------------------'''
-
-
-
