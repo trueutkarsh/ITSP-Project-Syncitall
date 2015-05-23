@@ -8,6 +8,7 @@ from PyQt4.QtCore import *
 class page(QWidget):
 	def __init__(self,add):
 		super(page,self).__init__()
+		self.name=add
 		self.windowtitle=add
 		self.setWindowTitle(add)
 		self.resize(500,500)
@@ -15,6 +16,22 @@ class page(QWidget):
 		p.setColor(self.backgroundRole(), Qt.white)
 		self.setPalette(p)
 		self.iconlist=[]
+		self.keyPressEvent=self.keypressed
+	def goback(self):#this function will be called to go back to previous page
+		num=self.name.count('/')
+		if num >2:
+			i=self.name[:-1].rfind('/')#index of 
+			newpagename=self.name[:i+1]
+			folderpagelist[self.name].hide()
+			folderpagelist[newpagename].show()
+		else:
+			print("You are in home folder")
+	def keypressed(self,event):
+		if event.key()==Qt.Key_Backspace:
+			print("backspace key pressed")
+			self.goback()
+					
+			
 class icon(QLabel):
 	def __init__(self,page,name,imgadd):#decide whether you want to have a variable or just a common address
 		super(icon,self).__init__(page)#each icon is associated with a page
@@ -22,7 +39,15 @@ class icon(QLabel):
 		self.setPixmap(self.pic)#pix map has been assighned its image
 		self.foldername=QLabel(page)#label for the name of folder
 		self.address=QString(name)#just for the sake of naming
+		self.pageaddress=page.name
 		self.foldername.setText(name)#
+		#for changing when firstclick
+		self.p =QPalette()
+		self.p.setColor(QPalette.Background, Qt.white)
+		self.setPalette(self.p)
+		self.foldername.setPalette(self.p)
+		self.iscolorwhite=True
+		#
 		self.foldername.move(self.x()+self.width(),self.y()+self.pic.height()/2-10)#move text to appropriate height
 		self.mousePressEvent = self.gotclickedevent
 		self.foldername.mousePressEvent=self.gotclickedevent
@@ -41,7 +66,7 @@ class icon(QLabel):
 		if event.type()==QEvent.MouseButtonPress:
 			if event.button()==Qt.LeftButton:
 				self.leftclickevent()
-				print("just got left clicked")
+				#print("just got left clicked")
 				#callfunction for left click on folder
 				#since left click function has nothing special work to do even  if it is called with double click it won't matter
 				#STILL FIND A METHOD TO MAKE CLICK AND DOUBLECLICK ACTIONS SEPARATE
@@ -51,8 +76,8 @@ class icon(QLabel):
 				#call function for right click on folder
 		elif event.type()==QEvent.MouseButtonDblClick:
 			self.doubleclickevent()
-			print("just got double clicked")
 	def leftclickevent(self):
+
 		pass
 	def rightclickevent(self):
 		pass			
@@ -64,19 +89,32 @@ class icon(QLabel):
 
 		
 class foldericon(icon):
-	def __init__(self,page,name):
-		super(icon,self).__init__(page,name,'/home/trueutkarsh/Pictures/downloadfolderfinal.png')
+	def leftclickevent(self):
+		if self.iscolorwhite==True:
+			self.p.setColor(QPalette.Background, Qt.blue)
+		else:
+			self.p.setColor(self.backgroundRole(), Qt.white)
+			self.iscolorwhite=False				
+
+	def doubleclickevent(self):
+		folderpagelist[self.pageaddress].hide()
+		folderpagelist[self.pageaddress+str(self.address)+'/'].show()
+				
 
 	#define leftclickevent,rightclickevent,doubleclickevent
 
 class fileicon(icon):
-	def __init__(self,page,name):
-		super(icon,self).__init__(page,name,'/home/trueutkarsh/Pictures/document.png')	
+	def leftclickevent(self):
+		if self.iscolorwhite==True:
+			p.setColor(QPalette.Background, Qt.blue)
+		else:
+			p.setColor(self.backgroundRole(), Qt.white)
+			self.iscolorwhite=False		
 	#define leftclickevent,rightclickevent,doubleclickevent
 def makebrowser(address,folderpagelist,currpage):
 	num=address.count('/')
 	if num==1:#its a file
-		tempfileicon=icon(currpage,address[1:],'/home/trueutkarsh/Pictures/document.png')#change here
+		tempfileicon=fileicon(currpage,address[1:],'/home/trueutkarsh/Pictures/document.png')#change here
 		currpage.iconlist.append(tempfileicon)        
 		return
 	else:#its a folder
@@ -90,7 +128,7 @@ def makebrowser(address,folderpagelist,currpage):
 		if newpagename not in folderpagelist.keys():
 			temppage=page(newpagename)
 			folderpagelist.update({newpagename:temppage})
-		tempfoldicon=icon(currpage,name,'/home/trueutkarsh/Pictures/downloadfolderfinal.png') #change here
+		tempfoldicon=foldericon(currpage,name,'/home/trueutkarsh/Pictures/downloadfolderfinal.png') #change here
 		currpage.iconlist.append(tempfoldicon)
 		makebrowser(remainingadd,folderpagelist,folderpagelist[newpagename])	
 			
@@ -102,8 +140,10 @@ w=page("/Home/")
 folderpagelist={}
 folderpagelist.update({"/Home/":w})
 makebrowser("/home/trueutkarsh/Pictures/downloadfolderfinal.png",folderpagelist,w)
-for x,y in folderpagelist.items():
-	y.show()	
+
+
+folderpagelist["/Home/"].show()
+
 #w.resize(500,500)
 #w.setWindowTitle("Hello World")
 
