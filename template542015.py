@@ -29,17 +29,21 @@ import commands #to read output
 import Tkinter
 import tkFileDialog
 # main() function gets file directory through dialog box. 
-def main():
- 
-    Tkinter.Tk().withdraw() # Close the root window
-    in_path = tkFileDialog.askdirectory()
-    return in_path
+#libraries for gui
+import sys
+from PyQt4.QtGui import  *
+from PyQt4.QtCore import *
+'''
+def main1():
+	adda=QString()
+	adda=QFileDialog.getExistingDirectory()
+    return adda
 # main2() gets file name through dialog box.
 def main2():
-	Tkinter.Tk().withdraw() # Close the root window
-        in_path = tkFileDialog.askopenfile()
-        return in_path.name	
-
+	addb=QString()
+	addb=QFileDialog.getOpenFileName()
+    return addb	
+'''
 
 class file:#bas class file
 	authorized=False#whether authorization has taken place or not
@@ -184,7 +188,7 @@ class gdrivefile(file):
 				if resp.status==200:
 					#print('Status',resp)
 					downloadedfile.write(content)
-					add2=main()
+					add2=main1()
 					src=add2+"/"+ file2download.get('title')
 					dest=os.getcwd()+"/"+ file2download.get('title')
 #>>>>>>> origin/master
@@ -269,16 +273,21 @@ class odrivefile(file):
 		startauturl='https://login.live.com/oauth20_authorize.srf?client_id='+client_id+'&scope='+ oscope+ '%20wl.basic&response_type=code&redirect_uri='+oredirecturi
 		driver.get(startauturl)
 		'''
-		oscope='onedrive.readwrite'#scope=how do u want to get access(PROBLEM HERE)=REQUESTED SCOPE DOES'NT MATCHES GIVEN SCOPE
-		driver=webdriver.Firefox()
-		authurl= 'https://login.live.com/oauth20_authorize.srf?scope='+oscope+'&redirect_uri=https%3A%2F%2Flogin.live.com%2Foauth20_desktop.srf&response_type=code&client_id=000000004015642C'
-		driver.get(authurl)
-		accept= WebDriverWait(driver, 120).until(EC.element_to_be_clickable((By.ID, "idBtn_Accept")))
-		accept.send_keys(Keys.RETURN)
-		endurl=str(driver.current_url)
-		driver.quit()
-		os.system("onedrive-cli auth "+ endurl)
-		odrivefile.authorized=True
+		try:
+
+			oscope='onedrive.readwrite'#scope=how do u want to get access(PROBLEM HERE)=REQUESTED SCOPE DOES'NT MATCHES GIVEN SCOPE
+			driver=webdriver.Firefox()
+			authurl= 'https://login.live.com/oauth20_authorize.srf?scope='+oscope+'&redirect_uri=https%3A%2F%2Flogin.live.com%2Foauth20_desktop.srf&response_type=code&client_id=000000004015642C'
+			driver.get(authurl)
+			accept= WebDriverWait(driver, 120).until(EC.element_to_be_clickable((By.ID, "idBtn_Accept")))
+			accept.send_keys(Keys.RETURN)
+			endurl=str(driver.current_url)
+			driver.quit()
+			os.system("onedrive-cli auth "+ endurl)
+			odrivefile.authorized=True
+		except:
+			print("Could'nt authorize onedrive")
+			return None	
 	@staticmethod	
 	def updatefilelist():
 		if odrivefile.authorized ==False:
@@ -355,7 +364,7 @@ class odrivefile(file):
 		tempcontent=commands.getstatusoutput("onedrive-cli get '"+ofile2download+"'")
 		downloadedfile.write(tempcontent[1])
 		src=os.getcwd()+'/'+filename
-		d=main()
+		d=main1()
 		if d=='d':
 			d=odrivefile.downloadfilepath
 		d=d+'/'+filename	
@@ -425,7 +434,7 @@ class odrivefile(file):
 					print(foldername+x)					
 				odrivefile.makefinallist(finallist,templist,folderlist)
 			else:
-				foldername=''
+				foldername='/'
 				for x in folderlist:
 					foldername=foldername+x
 				tmpodrivefile=odrivefile(foldername+name)
@@ -489,7 +498,7 @@ class dropboxfile(file):
 			f, metadata = dropboxfile.client.get_file_and_metadata(self.address)
 		except TypeError:
 			file.found=0
-		add=main()
+		add=main1()
 		
 		out = open(add+"/"+ntpath.basename(self.address), 'wb')
 		out.write(f.read())
@@ -556,12 +565,374 @@ class FinalList:
 		gdrivefile.makefinallist(self.finallist,gdrivefile.filelist)
 	def printaddress(self):
 		for a,b in self.finallist.items():
-			print(a,b.address)
-	def download(self):
-		filename=raw_input("Name of file").strip()
+			print(a,str(b.address))#change here
+	def download(self,filename):
+		#filename=raw_input("Name of file").strip()
 		self.finallist[filename].download()		
-					
+'''--------------------CODE FOR GUI STARTS HERE---------------------------'''					
+main=None
+abc=QApplication(sys.argv)
 
+class page(QWidget):
+    def __init__(self,add):
+        super(page,self).__init__()
+        self.windowtitle=add
+        self.setWindowTitle(add)
+        self.address=add
+        self.resize(500,500)
+        p = self.palette()
+        p.setColor(self.backgroundRole(), Qt.white)
+        self.setPalette(p)
+        self.iconlist=[]
+        #self.movelist=[]
+    def cut(self,icon):#page from where stuff will be copied
+    	main.movelist.append(icon)
+    	self.iconlist.remove(icon)
+    	yo(folderpagelist,self.address)
+    	#main.update(folderpagelist,self.address)
+	
+
+    	    
+
+def yo(folderpagelist,address):
+    main.clear(main.mainLayout)
+    #main.mainLayout.removeWidget(main.backbutton)
+    #main.mainLayout.removeWidget(main.scroll)
+    main.update(folderpagelist,address)
+    main.show()
+class icon(QLabel):
+    def __init__(self,page,name,imgadd):#decide whether you want to have a variable or just a common address
+        super(icon,self).__init__(page)#each icon is associated with a page
+        self.icon2=QIcon()
+        self.pic=QPixmap(imgadd)#to incude a pic pixmap
+        self.icon2.addPixmap(self.pic,QIcon.Normal,QIcon.On)
+        self.setPixmap(self.icon2.pixmap(128,QIcon.Normal,QIcon.On))#pix map has been assighned its image
+        self.foldername=QLabel(page)#label for the name of folder
+        self.address=QString(name)#just for the sake of naming
+        #
+        self.name=name
+        self.foldername.setText(name)
+        self.foldername.move(self.x()+self.width(),self.y()+self.pic.height()/2-10)#move text to appropriate height
+        self.mousePressEvent = self.gotclickedevent
+        self.foldername.mousePressEvent=self.gotclickedevent
+        self.mouseDoubleClickEvent = self.gotclickedevent
+        self.foldername.mouseDoubleClickEvent=self.gotclickedevent
+        self.pageadd=page.windowtitle
+        #self.installEventFilter(self)
+        self.h=QVBoxLayout()
+        
+        
+        self.txtlabel=QLabel()
+        self.txtlabel.setToolTip(name)
+
+        #txtlabel.setFixedSize(130,10)
+        #txtlabel.setStyleSheet("QWidget {background-color:blue}")
+        if len(name)>15:
+            name=name[:11]+"..."
+        self.txtlabel.setText(name)
+        self.txtlabel.setFixedSize(130,20)
+        self.txtlabel.setAlignment(Qt.AlignCenter)
+        self.setAlignment(Qt.AlignCenter)
+        
+        '''
+    def hiddenname():
+        i=15
+        label=QVBoxLayout()
+        label2=QLabel()
+        while ((len(self.name)-15-i)>0):
+            tmp=self.name[i:i+14]
+            
+            label2.setText(tmp)
+            label.addWidget(label2)
+            i=i+15
+        label2.setText(self.name[i:])
+        label.addWidget(label2)
+        return label
+        '''
+
+
+        #self.connect(self.foldername, SIGNAL('clicked()'), self.gotclicked)
+    def move(self,x,y):#overwriting the existing function
+        super(icon,self).move(x,y)
+        self.foldername.move(self.x()+self.width(),self.y()+self.pic.height()/2-10)
+
+    def gotclickedevent(self,event):
+        #self.emit(QtCore.SIGNAL('clicked()'))
+        if event.type()==QEvent.MouseButtonPress:
+            if event.button()==Qt.LeftButton:
+                self.leftclickevent()
+                print("just got left clicked")
+                #callfunction for left click on folder
+                #since left click function has nothing special work to do even  if it is called with double click it won't matter
+                #STILL FIND A METHOD TO MAKE CLICK AND DOUBLECLICK ACTIONS SEPARATE
+            elif event.button()==Qt.RightButton:
+                print("just got right clicked")
+                self.rightclickevent()
+                #call function for right click on folder
+        elif event.type()==QEvent.MouseButtonDblClick:
+            self.doubleclickevent()
+            print("just got double clicked")
+    
+
+    def leftclickevent(self):
+    	self.txtlabel.setText(self.name)
+    	pass
+ 
+    def rightclickevent(self):
+        pass            
+    def doubleclickevent(self):
+        '''
+        main.clear(main.layout)
+        main.update(folderpagelist,self.pageadd+self.name+"/")
+        
+        main.show() 
+        '''
+
+    def show(self):
+        super(foldericon,self).show()
+        self.foldername.show()  
+
+        
+class foldericon(icon):
+    def __init__(self,page,name):
+        super(foldericon,self).__init__(page,name,'/home/trueutkarsh/Pictures/downloadfolderfinal.png')
+    def gotclickedevent(self,event):
+        super(foldericon,self).gotclickedevent(event)
+    def doubleclickevent(self):
+        
+        main.clear(main.mainLayout)
+        #main.mainLayout.removeWidget(main.backbutton)
+        #main.mainLayout.removeWidget(main.scroll)
+        main.update(folderpagelist,self.pageadd+self.name+"/")
+        main.show()
+        main.curradd=self.pageadd+self.name+"/" 
+    #define leftclickevent,rightclickevent,doubleclickevent
+
+class fileicon(icon):
+    def __init__(self,page,name):
+        super(fileicon,self).__init__(page,name,'/home/trueutkarsh/Pictures/documents.jpg') 
+    def contextMenuEvent(self, event):
+        #index = self.indexAt(event.pos())
+        self.menu = QMenu()
+        renameAction = QAction('Exit',self)
+        Download = QAction('Download',self)
+        cut=QAction('Cut',self)
+        paste=QAction('Paste',self)
+        self.menu.addAction(paste)
+        self.menu.addAction(Download)
+        self.menu.addAction(cut)
+        Download.triggered.connect(lambda x:File.download(self.name))
+        cut.triggered.connect(lambda x:folderpagelist[main.curradd].cut(self))#change here
+        paste.triggered.connect(lambda x:main.paste())
+        self.menu.popup(QCursor.pos())
+
+    #define leftclickevent,rightclickevent,doubleclickevent
+def makebrowser(address,folderpagelist,currpage):
+    num=address.count('/')
+    if num==1:#its a file
+        for i in currpage.iconlist:
+            if i.name==address[1:]:
+                return
+
+
+        tempfileicon=fileicon(currpage,address[1:])#change here
+        currpage.iconlist.append(tempfileicon)        
+        return
+    elif num==0:#its a file
+        for i in currpage.iconlist:
+            if i.name==address:
+                return
+
+
+        tempfileicon=fileicon(currpage,address)#change here
+        currpage.iconlist.append(tempfileicon)        
+        return        
+
+    else:#its a folder
+        add=address.strip()
+        i=(add[1:]).find('/')
+        name=add[1:i+1]
+        print(name)
+        remainingadd=add[i+1:]
+        print(remainingadd)
+        newpagename=currpage.windowtitle + name+'/'
+        if newpagename not in folderpagelist.keys():
+            temppage=page(newpagename)
+            folderpagelist.update({newpagename:temppage})
+            tempfoldicon=foldericon(currpage,name) #change here
+            currpage.iconlist.append(tempfoldicon)
+        makebrowser(remainingadd,folderpagelist,folderpagelist[newpagename])    
+            
+class Main(QMainWindow):
+    
+
+    def __init__(self,folderpagelist,address,parent = None):
+            super(Main, self).__init__(parent)
+            self.centralWidget=QWidget()
+            self.setCentralWidget(self.centralWidget)
+
+            self.mainLayout=QGridLayout()
+            self.container=QWidget()
+            self.scroll=QScrollArea()
+            self.layout=QGridLayout()
+            self.backicon=QIcon()
+            self.curradd=address
+            self.movelist=[]
+            a=QSize(90,90)
+            self.backicon.addFile('back.png',a,QIcon.Normal,QIcon.On)
+    def update(self,folderpagelist,address):
+        tmplist={}
+        for a,b in folderpagelist.items():
+            tmplist.update({a:b})
+        print address
+        self.layout=QGridLayout()
+        self.container=QWidget()
+        self.scroll=QScrollArea()
+        self.layout=QGridLayout()
+        self.backbutton=QPushButton(self.backicon,"Back",self.centralWidget)
+        self.backbutton.setFixedSize(60,24)
+        self.backbutton.clicked.connect(self.lp)
+        ###
+        folderpagelist[address].setLayout(self.layout)
+        self.ad=address
+        k=0
+        j=0
+        i=0
+        self.positions=[]
+        self.positions2=[]   
+        while(i<len(folderpagelist[address].iconlist)):
+            j=0
+            while(j<4 and i<len(folderpagelist[address].iconlist )):
+                    
+                self.positions=self.positions+[(k,j)]
+                self.positions2=self.positions2+[(k+1,j)]
+                j=j+1
+                i=i+1
+            k=k+1
+            
+            #pos1=QMouseEvent.pos()
+            #m=QMouseEvent()
+            
+        for position,icon,position2 in zip(self.positions,folderpagelist[address].iconlist,self.positions2):
+                
+            '''
+                h=QVBoxLayout()
+                label=Newlabel()
+                txtlabel=QLabel()
+                txtlabel.setText("Documents")
+                h.addWidget(txtlabel)
+                label.position=position
+                label.setPixmap(icon.pixmap(size,QIcon.Normal,state))
+                QtCore.QObject.connect(label, QtCore.SIGNAL('clicked()'), label.lp)
+                w.addWidget(label,*position)
+                h.addStretch(1)
+                w.addItem(h,*position)
+            '''
+            overall=QVBoxLayout()
+            icon.h.addWidget(icon.txtlabel)   
+            overall.addWidget(icon)
+            overall.addWidget(icon.txtlabel)
+
+            #txtlabel.move(0,100)
+            #self.h.addStretch(2)
+       
+            #self.layout.addItem(self.h,*position2)
+
+            #self.layout.addWidget(txtlabel)
+            #icon.setFixedSize(130,20)  
+
+            self.layout.addItem(overall,*position)
+
+            
+            
+        self.container.setLayout(self.layout)
+        
+        self.scroll.setWidget(self.container)
+        self.mainLayout.addWidget(self.backbutton)
+        self.mainLayout.addWidget(self.scroll)
+        self.centralWidget.setLayout(self.mainLayout)    
+        #self.centralWidget.setMaximumSize(600,600)
+        
+    def lp(self):
+        count=self.ad[:-1].count('/')
+        if count>1:
+        	i=self.ad[:-1].rfind("/")
+        	yo(folderpagelist,self.ad[:i+1])
+        	self.curradd=self.ad[:i+1]
+        	print("curr add is" +self.curradd)
+        else:
+        	print("You are in home directory")	
+        #main.clear(main.layout)
+        #main.update(folderpagelist,self.ad[:i+1])
+        #main.show()
+            
+
+    def clear(self,layout):
+        '''
+        for i in reversed(range(self.layout.count())):
+            self.layout.itemAt(i).widget().setParent(None)
+        '''
+
+        for i in reversed(range(layout.count())):
+            item = layout.itemAt(i)
+
+            if isinstance(item, QWidgetItem):
+
+                item.widget().close()
+            # or
+            # item.widget().setParent(None)
+            elif isinstance(item, QSpacerItem):
+                pass
+            # no need to do extra stuff
+            else:
+
+                self.clear(item.layout())
+
+        # remove the item from layout
+            layout.removeItem(item)
+    def paste(self):
+    	print("self is called with"+self.curradd)
+    	folderpagelist[self.curradd].iconlist=self.movelist+folderpagelist[self.curradd].iconlist
+    	#main.update(folderpagelist,self.address)
+    	yo(folderpagelist,self.curradd)
+    	del self.movelist[:]
+
+
+    	                  
+  
+#class fileicon()
+
+w=page("/Home/")
+#imgadd='/home/trueutkarsh/Pictures/downloadfolderfinal.png'
+
+
+folderpagelist={}
+folderpagelist.update({"/Home/":w})
+
+
+File=FinalList()
+File.update()
+#File.printaddress()#-TO PRINT FINAL LIST  UNCOMMENT THIS LINE
+
+
+folderpagelist={}
+folderpagelist.update({"/Home/":w})
+for x,y in File.finallist.items():
+	try:
+		makebrowser(y.address,folderpagelist,w)
+	except:
+		print("error in this address"+ y.address)
+main=Main(folderpagelist,"/Home/")
+main.update(folderpagelist,"/Home/")
+main.show()
+sys.exit(abc.exec_())
+
+
+
+
+
+'''---------------CODE FOR GUI ENDS HERE--------------------------------------'''			
+  
 
 #testing the new update
 
@@ -603,15 +974,50 @@ while True:
 #odrivefile.updatefilelist()
 #odrivefile.download()
 #odrivefile.oprintquota()
+'''
+gdrivefile.authorize()
+gdrivefile.updatefilelist()
+for x in gdrivefile.filelist:
+	add=x['originalFilename']
+	print add
+'''
 '''----FUNCTION TO CHECK DOWNLOAD FROM COMMON DATA BASE.JUST WRITE FILE NAME OF FILE 2 DOWNLOAD FROM ANY OF THE THREE DRIVES'''
+'''
+a=QApplication(sys.argv)
 File=FinalList()
 File.update()
-#File.printaddress()-TO PRINT FINAL LIST  UNCOMMENT THIS LINE
+#File.printaddress()#-TO PRINT FINAL LIST  UNCOMMENT THIS LINE
+
+w=page("/Home/")
+folderpagelist={}
+folderpagelist.update({"/Home/":w})
+for x,y in File.finallist.items():
+	try:
+		makebrowser(y.address,folderpagelist,w)
+	except:
+		print("error in this address"+ y.address)
+for x,y in folderpagelist.items():
+	y.arrange() 
+#folderpagelist["/Home/"].show()				
+#folderpagelist["/Home/"].show()
+mainwindow=QMainWindow()
+scroll=QScrollArea()
+scroll.setWidget(folderpagelist["/Home/"])
+scroll.setWidgetResizable(True)
+scroll.setFixedWidth(800)
+layout=QVBoxLayout(folderpagelist["/Home/"])
+layout.addWidget(scroll)
+
+mainwindow.setCentralWidget(folderpagelist["/Home/"])
+mainwindow.show()
+sys.exit(a.exec_())
+'''
+'''
 command='download'
 while  command=='download':
 	File.download()
 	command=raw_input("Enter command").strip()
-
+'''
 '''----PRESENTLY UPLOAD IS DRIVE SPECIFIC MAKE AN INSTANCE OF RESPECTIVE DRIVE CLASS AND INITIALIZE IT WITH ITS FILE ADDRESS ON PC'''	
 
 
@@ -675,6 +1081,7 @@ for line in templink:
 2.If any change has been made to such as download or upload of a file,filelist should be update there for that file.not complete
 update file should be called.
 3.There should be folder structures in UI.Files should be shown to be in folders and stuff.
+4.Make a last authorized time in each drive classes.So that a user h
 
 
 -----------------------------------------------------------------------------------'''

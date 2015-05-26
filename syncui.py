@@ -14,6 +14,7 @@ class page(QWidget):
 		self.resize(500,500)
 		p = self.palette()
 		p.setColor(self.backgroundRole(), Qt.white)
+		#self.resizable(True)
 		self.setPalette(p)
 		self.iconlist=[]
 		self.keyPressEvent=self.keypressed
@@ -30,6 +31,17 @@ class page(QWidget):
 		if event.key()==Qt.Key_Backspace:
 			print("backspace key pressed")
 			self.goback()
+	def arrange(self):
+		maxh=500
+		h=-100
+		w=0
+		for x in range(len(self.iconlist)):
+			w=300*x
+			if w%1800==0:
+				h=h+100
+			self.iconlist[x].move(w%1800,h)
+
+
 					
 			
 class icon(QLabel):
@@ -97,9 +109,11 @@ class foldericon(icon):
 			self.iscolorwhite=False				
 
 	def doubleclickevent(self):
+		'''
 		folderpagelist[self.pageaddress].hide()
 		folderpagelist[self.pageaddress+str(self.address)+'/'].show()
-				
+		'''	
+		mainwindow.setCentralWidget(folderpagelist[self.pageaddress+str(self.address)+'/'])	
 
 	#define leftclickevent,rightclickevent,doubleclickevent
 
@@ -128,8 +142,8 @@ def makebrowser(address,folderpagelist,currpage):
 		if newpagename not in folderpagelist.keys():
 			temppage=page(newpagename)
 			folderpagelist.update({newpagename:temppage})
-		tempfoldicon=foldericon(currpage,name,'/home/trueutkarsh/Pictures/downloadfolderfinal.png') #change here
-		currpage.iconlist.append(tempfoldicon)
+			tempfoldicon=foldericon(currpage,name,'/home/trueutkarsh/Pictures/downloadfolderfinal.png') #change here
+			currpage.iconlist.append(tempfoldicon)
 		makebrowser(remainingadd,folderpagelist,folderpagelist[newpagename])	
 			
   
@@ -139,40 +153,22 @@ w=page("/Home/")
 #imgadd='/home/trueutkarsh/Pictures/downloadfolderfinal.png'
 folderpagelist={}
 folderpagelist.update({"/Home/":w})
+adda=QString()
+adda=QFileDialog.getExistingDirectory()
+print(adda)
+addb=QFileDialog.getOpenFileName()
 makebrowser("/home/trueutkarsh/Pictures/downloadfolderfinal.png",folderpagelist,w)
+makebrowser("/home/trueutkarsh/downloadfolderfinal.png",folderpagelist,w)
+for x,y in folderpagelist.items():
+	y.arrange()
+mainwindow=QMainWindow()
+mainwindow.setCentralWidget(folderpagelist["/Home/"])
+mainwindow.show()	
 
-
-folderpagelist["/Home/"].show()
+#folderpagelist["/Home/"].show()
 
 #w.resize(500,500)
 #w.setWindowTitle("Hello World")
 
 #w.show()
 sys.exit(a.exec_())
-
-'''
-import sys
-from PyQt4.QtGui import *
- 
-# Create an PyQT4 application object.
-a = QApplication(sys.argv)       
- 
-# The QWidget widget is the base class of all user interface objects in PyQt4.
-w = QWidget()
- 
-# Set window size. 
-w.resize(320, 240)
- 
-# Set window title  
-w.setWindowTitle("Hello World!") 
- 
-# Show window
-w.show() 
- 
-sys.exit(a.exec_())
-'''
-
-
-
-		
-
