@@ -38,7 +38,7 @@ def main1():
 	adda=QString()
 	adda=QFileDialog.getExistingDirectory()
     return adda
-# main2() gets file name through dialog box.
+	# main2() gets file name through dialog box.
 def main2():
 	addb=QString()
 	addb=QFileDialog.getOpenFileName()
@@ -584,12 +584,22 @@ class page(QWidget):
         p.setColor(self.backgroundRole(), Qt.white)
         self.setPalette(p)
         self.iconlist=[]
+        #code for context menu
+
         #self.movelist=[]
     def cut(self,icon):#page from where stuff will be copied
     	main.movelist.append(icon)
     	self.iconlist.remove(icon)
     	yo(folderpagelist,self.address)
     	#main.update(folderpagelist,self.address)
+    def paste(self):
+ 		if main.movelist != []:
+    			self.iconlist=main.movelist+self.iconlist
+    		#main.update(folderpagelist,self.address)
+    			yo(folderpagelist,self.address)#modifies the page..
+    			del main.movelist[:] 
+    	 
+
 	
 
     	    
@@ -865,7 +875,8 @@ class Main(QMainWindow):
         #main.clear(main.layout)
         #main.update(folderpagelist,self.ad[:i+1])
         #main.show()
-            
+
+
 
     def clear(self,layout):
         '''
@@ -890,18 +901,26 @@ class Main(QMainWindow):
 
         # remove the item from layout
             layout.removeItem(item)
-    def paste(self):
-    	print("self is called with"+self.curradd)
-    	folderpagelist[self.curradd].iconlist=self.movelist+folderpagelist[self.curradd].iconlist
-    	#main.update(folderpagelist,self.address)
-    	yo(folderpagelist,self.curradd)
-    	del self.movelist[:]
+    def contextMenuEvent(self, event):
+        #index = self.indexAt(event.pos())
+        self.menu = QMenu()
+        renameAction = QAction('Exit',self)
+        paste=QAction('Paste',self)
+        newfolder=QAction('New Folder',self)
+        self.menu.addAction(paste)
+        self.menu.addAction(newfolder)
+        #Download.triggered.connect(lambda x:File.download(self.name))
+        #cut.triggered.connect(lambda x:folderpagelist[main.curradd].cut(self))#change here
+        paste.triggered.connect(lambda x:folderpagelist[main.curradd].paste())
+        self.menu.popup(QCursor.pos())
 
 
     	                  
   
 #class fileicon()
-
+#add=main2()
+#a=odrivefile(add)
+#a.upload()
 w=page("/Home/")
 #imgadd='/home/trueutkarsh/Pictures/downloadfolderfinal.png'
 
