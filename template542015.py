@@ -554,14 +554,14 @@ class FinalList:
 		self.finallist={}
 	def update(self):
 		gdrivefile.authorize()
-		#odrivefile.authorize()
+		odrivefile.authorize()
 		dropboxfile.authorize()
 		gdrivefile.updatefilelist()
-		#odrivefile.updatefilelist()
+		odrivefile.updatefilelist()
 		add='/'
 		dropboxfile.makefilelist(add,self.finallist)
 		folder=[]
-		#odrivefile.makefinallist(self.finallist,odrivefile.filelist,folder)
+		odrivefile.makefinallist(self.finallist,odrivefile.filelist,folder)
 		gdrivefile.makefinallist(self.finallist,gdrivefile.filelist)
 	def printaddress(self):
 		for a,b in self.finallist.items():
