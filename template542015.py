@@ -469,7 +469,8 @@ class dropboxfile(file):
 			dropboxfile.authorize()
 			dropboxfile.authorized=True
 		#code for upload
-		
+		a=self.address.rfind('/')
+		name=self.address[a+1:]
 		f = open(self.address, 'rb')
 		response = dropboxfile.client.put_file(ntpath.basename(self.address), f)
 
@@ -503,18 +504,23 @@ class dropboxfile(file):
 		dropboxfile.account=dropboxfile.client.account_info()
 		#code for authorization	
 	
-	def download(self,add):
+	def download(self,add=None):
 		if dropboxfile.authorized==False :
 			return None
-		try:		
-			f, metadata = dropboxfile.client.get_file_and_metadata(self.address)
+		try:
+			if '/' in self.address:
+				i=self.address.rfind('/')
+				filename=self.address[i+1:]
+			else:
+				filename=self.address			
+			f, metadata = dropboxfile.client.get_file_and_metadata(filename)
 		except TypeError:
 			file.found=0
 		if add==None:#change here	
 			add=main1()
 				
 		
-		out = open(add+"/"+ntpath.basename(self.address), 'wb')
+		out = open(add+"/"+ntpath.basename(filename), 'wb')
 		out.write(f.read())
 		out.close()
 	@staticmethod
@@ -960,18 +966,21 @@ def splitsizef(storelist,filesize):
 	else:
 		if storelist[0]==0:#maximum number of splits
 			#storelist.sort()
+			print(storelist)
 			storelist=storelist[1:]
 			print("storelist below")
 			print(storelist)			
-			splitsizef(storelist,filesize)
+			b=splitsizef(storelist,filesize)
 		elif int(filesize/storelist[0])>100:
+			print(storelist)
 			storelist.sort()
 			storelist=storelist[1:]
 			print("storelist below")
 			print(storelist)
-			splitsizef(storelist,filesize)			
-		else:	
-			return int(storelist[0]/(1024*1024))		
+			b=splitsizef(storelist,filesize)			
+		else:
+			b=int(storelist[0]/(1024*1024))	
+	return b		
 
 
 def splitfile(fileadd,filename,splitsize):
@@ -995,8 +1004,11 @@ class distributedfile():
 		self.filename=filename
 	def update(self,x):
 		self.files.append(x)
-	def download(self):
-		add=main1()
+	def download(self,addr=None):
+		if addr==None:
+			add=main1()
+		else:
+			add=addr	
 		print("download will happen herer"+add)
 		presentdir=os.getcwd()
 		print("presently i am here"+ presentdir)
@@ -1012,7 +1024,7 @@ class distributedfile():
 		dirlist=os.listdir(os.getcwd())
 		print(dirlist)
 		for x in dirlist:
-			t=x.find('$')
+			t=x.rfind('$')#rfind beacuse file can be multply splitted
 			os.rename(os.getcwd()+'/'+x,os.getcwd()+'/'+x[t+1:])
 		os.system("cat x* > '"+self.filename+"'")
 		src=add+'/'+tmpfolder+'/'+self.filename
@@ -1340,20 +1352,20 @@ folderpagelist.update({"/Home/":w})
 File=FinalList()
 File.update()
 #File.printaddress()#-TO PRINT FINAL LIST  UNCOMMENT THIS LINE
-gdrivefile.currentquota=[1,50*1024*1024]
-odrivefile.currentquota=[2,30*1024*1024]
-dropboxfile.currentquota=[3,20*1024*1024]
+gdrivefile.currentquota=[1,7*1024*1024]
+odrivefile.currentquota=[2,6*1024*1024]
+dropboxfile.currentquota=[3,4*1024*1024]
 storelist=[odrivefile.currentquota[1],gdrivefile.currentquota[1],dropboxfile.currentquota[1]]#and other drives can be added further dropboxfile.currentquota[1]-removed dropbox
 
 folderpagelist={}
 folderpagelist.update({"/Home/":w})
-'''
+
 for x,y in File.finallist.items():
 	try:
 		makebrowser(y.address,folderpagelist,w)
 	except:
 		print("error in this address"+ y.address)
-'''		
+		
 main=Main(folderpagelist,"/Home/")
 main.update(folderpagelist,"/Home/")
 main.show()
