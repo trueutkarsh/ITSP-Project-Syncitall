@@ -533,15 +533,16 @@ class dropboxfile(file):
 		#print folder_metadata
 
 		for x in folder_metadata['contents']:
-			if x['is_dir']==False:
-				
-				
-				tmpdrpfile=dropboxfile(x['path'])
-				finallist.update({ntpath.basename(x['path']):tmpdrpfile})
+			if '$x' not in x['path']:
+				if x['is_dir']==False:
 					
-			else:
-				add=x['path']+"/"
-				dropboxfile.makefilelist(add,finallist)
+					
+					tmpdrpfile=dropboxfile(x['path'])
+					finallist.update({ntpath.basename(x['path']):tmpdrpfile})
+						
+				else:
+					add=x['path']+"/"
+					dropboxfile.makefilelist(add,finallist)
 
 	@staticmethod
 	def quota():
