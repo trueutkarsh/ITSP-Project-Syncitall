@@ -30,22 +30,29 @@ import Tkinter
 import tkFileDialog
 # main() function gets file directory through dialog box. 
 #libraries for gui
+import pickle
 import sys
 from PyQt4.QtGui import  *
 from PyQt4.QtCore import *
-
-def main():
- 
-    Tkinter.Tk().withdraw() # Close the root window
-    in_path = tkFileDialog.askdirectory()
-    return in_path
-# main2() gets file name through dialog box.
+saved_list={}
+'''
+def main1():
+	adda=QString()
+	adda=QFileDialog.getExistingDirectory()
+	return adda
+	# main2() gets file name through dialog box.
 def main2():
-	Tkinter.Tk().withdraw() # Close the root window
-        in_path = tkFileDialog.askopenfile()
-        return in_path.name	
-
-
+	addb=QString()
+	addb=QFileDialog.getOpenFileName()
+	return addb	
+'''
+class account:
+	gname=''
+	gpass=''
+	oname=''
+	opass=''
+	dname=''
+	dpass=''
 class file:#bas class file
 	authorized=False#whether authorization has taken place or not
 	listupdated=False#whether file list is updated or not
@@ -61,6 +68,7 @@ class file:#bas class file
 		pass
 
 class gdrivefile(file):
+	tobeauthorized=False
 	drive_service=None
 	filelist=[]
 	currentquota=None
@@ -97,29 +105,27 @@ class gdrivefile(file):
 
 		# Redirect URI for installed apps
 		REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
-
-		flow = OAuth2WebServerFlow(CLIENT_ID, CLIENT_SECRET, OAUTH_SCOPE,
-                           redirect_uri=REDIRECT_URI)
-		authorize_url = flow.step1_get_authorize_url()
+		try:
+			flow = OAuth2WebServerFlow(CLIENT_ID, CLIENT_SECRET, OAUTH_SCOPE,
+						   redirect_uri=REDIRECT_URI)
+			authorize_url = flow.step1_get_authorize_url()
+		except:
+			print "No internet connection"
+			return
 		#print 'Go to the following link in your browser: ' + authorize_url
 
 		try:		
-			driver=webdriver.Firefox()#depends on your browser
-						
+			driver=webdriver.PhantomJS()#depends on your browser
 			driver.get(authorize_url)
-			cookies=driver.get_cookies()
-			for cookie in cookies:
-				driver.add_cookie(cookie)			
-			#login=driver.find_element_by_name("signIn")
-			#login.send_keys(Keys.RETURN)
-			accept= WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.ID, "submit_approve_access")))
-			accept.send_keys(Keys.RETURN)
-    			#accept.click()
-			a=driver.find_element_by_id("code")
-                
-			code=a.get_attribute('value')		
+			WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.ID, "Email"))).send_keys(account.gname)
+			WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.ID, "Passwd"))).send_keys(account.gpass)	
+			WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.ID, "signIn"))).click()		
+			WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.ID, "submit_approve_access"))).click()
+			code1= WebDriverWait(driver, 120).until(EC.element_to_be_clickable((By.ID, "code")))
+			code=code1.get_attribute('value')		
 			driver.quit()
 			gdrivefile.authorized=True
+			print "Google drive authorized"
 		except:
 			print "Could not authorize to Google Drive"
 			return None
@@ -189,7 +195,7 @@ class gdrivefile(file):
 				if resp.status==200:
 					#print('Status',resp)
 					downloadedfile.write(content)
-					add2=main()
+					add2=main1()
 					src=add2+"/"+ file2download.get('title')
 					dest=os.getcwd()+"/"+ file2download.get('title')
 #>>>>>>> origin/master
@@ -225,6 +231,7 @@ class gdrivefile(file):
   			
 
 class odrivefile(file):
+	tobeauthorized=False
 	filelist=None
 	currentquota=None
 	downloadfilepath='/home/utkarsh/Downloads/Syncitall Onedrive Downloads'
@@ -277,15 +284,19 @@ class odrivefile(file):
 		try:
 
 			oscope='onedrive.readwrite'#scope=how do u want to get access(PROBLEM HERE)=REQUESTED SCOPE DOES'NT MATCHES GIVEN SCOPE
-			driver=webdriver.Firefox()
+			driver=webdriver.PhantomJS()
 			authurl= 'https://login.live.com/oauth20_authorize.srf?scope='+oscope+'&redirect_uri=https%3A%2F%2Flogin.live.com%2Foauth20_desktop.srf&response_type=code&client_id=000000004015642C'
 			driver.get(authurl)
-			accept= WebDriverWait(driver, 120).until(EC.element_to_be_clickable((By.ID, "idBtn_Accept")))
-			accept.send_keys(Keys.RETURN)
+			WebDriverWait(driver, 120).until(EC.element_to_be_clickable((By.ID, "i0116"))).send_keys(account.oname)
+			WebDriverWait(driver, 120).until(EC.element_to_be_clickable((By.ID, "i0118"))).send_keys(account.opass)
+			WebDriverWait(driver, 120).until(EC.element_to_be_clickable((By.ID, "idSIButton9"))).click()
+
+			WebDriverWait(driver, 120).until(EC.element_to_be_clickable((By.ID, "idBtn_Accept"))).click()
 			endurl=str(driver.current_url)
 			driver.quit()
 			os.system("onedrive-cli auth "+ endurl)
 			odrivefile.authorized=True
+			print "Onedrive authorized"
 		except:
 			print("Could'nt authorize onedrive")
 			return None	
@@ -365,7 +376,7 @@ class odrivefile(file):
 		tempcontent=commands.getstatusoutput("onedrive-cli get '"+ofile2download+"'")
 		downloadedfile.write(tempcontent[1])
 		src=os.getcwd()+'/'+filename
-		d=main()
+		d=main1()
 		if d=='d':
 			d=odrivefile.downloadfilepath
 		d=d+'/'+filename	
@@ -421,8 +432,8 @@ class odrivefile(file):
 			print(filetype)
 			#print('PROBLEM HERE')			
 			if filetype=='folder' or filetype=='album':
-				folderlist.append(name+'/')
 				foldername=''
+				folderlist.append(name+'/')
 				for x in folderlist:
 					foldername=foldername+x
 				print(foldername)
@@ -452,6 +463,7 @@ class odrivefile(file):
 
 		
 class dropboxfile(file):
+	tobeauthorized=False
 	client=None
 	account=None
 	def upload(self):
@@ -468,23 +480,27 @@ class dropboxfile(file):
 	def authorize():
 		app_key = '0iwzfwq43mcvirb'
 		app_secret = 'ivcutlb76xs5cbr'
-	
-		flow = dropbox.client.DropboxOAuth2FlowNoRedirect(app_key, app_secret)
-		authorize_url = flow.start()
 		try:
-			driver=webdriver.Firefox()#depends on your browser
-			
+			flow = dropbox.client.DropboxOAuth2FlowNoRedirect(app_key, app_secret)
+			authorize_url = flow.start()
+		except:
+			print "No internet connection"
+			return
+		try:
+			driver=webdriver.PhantomJS()#depends on your browser
 			driver.get(authorize_url)
-			#login=driver.find_element_by_name("signIn")
-			#login.send_keys(Keys.RETURN)
-			accept= WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.NAME, "allow_access")))
-			accept.send_keys(Keys.RETURN)
-    			#accept.click()
-			code=driver.find_element_by_id("auth-code").get_attribute("innerHTML")
-                
-				
+			driver.save_screenshot('screen1.png')
+			(WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.XPATH, '//input[@class="text-input-input autofocus"]')))).send_keys(account.dname)
+			(WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.XPATH, '//input[@class="password-input text-input-input"]')))).send_keys(account.dpass)
+			driver.save_screenshot('screen2.png')
+			(WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.XPATH, '//button[@type="submit"]')))).click()
+			(WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.NAME, "allow_access")))).click()
+			driver.save_screenshot('screen5.png')
+			code1= WebDriverWait(driver, 120).until(EC.element_to_be_clickable((By.ID, "auth-code")))
+			code=code1.get_attribute("innerHTML")
 			driver.quit()
 			dropboxfile.authorized=True
+			print "Dropbox authorized"
 		except:
 			print "Could not authorize to dropbox"
 			return None
@@ -500,7 +516,7 @@ class dropboxfile(file):
 			f, metadata = dropboxfile.client.get_file_and_metadata(self.address)
 		except TypeError:
 			file.found=0
-		add=main()
+		add=main1()
 		
 		out = open(add+"/"+ntpath.basename(self.address), 'wb')
 		out.write(f.read())
@@ -522,7 +538,18 @@ class dropboxfile(file):
 			else:
 				add=x['path']+"/"
 				dropboxfile.makefilelist(add,finallist)
-
+				'''
+		for x in folder_metadata['contents']:
+			if x['is_dir']==False:
+				print "I was here"
+				if ntpath.basename(x['path'])=="mouse.sh":
+					print "I was here too"
+					dropboxfile.client.file_delete(x['path'])
+					print x['path']
+					rev= dropboxfile.client.revisions(x['path'],rev_limit=2)
+					print rev[0]
+					dropboxfile.client.restore(x['path'],rev[0])
+				'''
 	@staticmethod
 	def quota():
 		if dropboxfile.authorized==None:
@@ -530,7 +557,7 @@ class dropboxfile(file):
 			return None
 		else:
 			print ("shared : " +str(dropboxfile.account['quota_info']['shared']))
-			print ("quota : " +str(dropboxfile.account['quota_info']['quota']))
+			print ("quota  : " +str(dropboxfile.account['quota_info']['quota']))
 			print ("normal : " +str(dropboxfile.account['quota_info']['normal']))	
 	
 	@staticmethod
@@ -555,347 +582,736 @@ class FinalList:
 	def __init__(self):
 		self.finallist={}
 	def update(self):
-		gdrivefile.authorize()
-		odrivefile.authorize()
-		dropboxfile.authorize()
-		gdrivefile.updatefilelist()
-		odrivefile.updatefilelist()
-		add='/'
-		dropboxfile.makefilelist(add,self.finallist)
-		folder=[]
-		odrivefile.makefinallist(self.finallist,odrivefile.filelist,folder)
-		gdrivefile.makefinallist(self.finallist,gdrivefile.filelist)
+		if gdrivefile.tobeauthorized==True:
+			if True:
+				gdrivefile.authorize()
+				gdrivefile.updatefilelist()
+				gdrivefile.makefinallist(self.finallist,gdrivefile.filelist)
+			else:
+				print "Could not make filelist"
+		if dropboxfile.tobeauthorized==True:
+			try:
+				dropboxfile.authorize()
+				add='/'
+				dropboxfile.makefilelist(add,self.finallist)
+			except:
+				print "Could not make filelist"
+		if odrivefile.tobeauthorized==True:
+			try:
+				odrivefile.authorize()
+				odrivefile.updatefilelist()
+				folder=[]
+				odrivefile.makefinallist(self.finallist,odrivefile.filelist,folder)
+			except:
+				print "Could not make filelist"
 	def printaddress(self):
 		for a,b in self.finallist.items():
 			print(a,str(b.address))#change here
-	def download(self):
-		filename=raw_input("Name of file").strip()
+	def download(self,filename):
+		#filename=raw_input("Name of file").strip()
 		self.finallist[filename].download()		
 '''--------------------CODE FOR GUI STARTS HERE---------------------------'''					
 main=None
 abc=QApplication(sys.argv)
 
+
+#This code is to get any new icons or directories created in cloud storage.
+	
+def process_list():
+	for a,b in folderpagelist.items():
+		for c in b.iconlist:
+			if b.windowtitle+c.name not in saved_list.keys():
+				saved_list.update({b.windowtitle+c.name:None})
+	pickle.dump(saved_list,open('workfile.pkl','wb'))
+#This function is to change the folderpagelist according to data saved 
+#in saved_list.	
+def process_folderpagelist():
+	#Make all new folders
+	for i in saved_list.keys():
+		if i[-1]=="/":
+			tmppage=page(i)
+			folderpagelist.update({i:tmppage})
+	#Assign icons to new folders.
+	for i in saved_list.keys():
+		if i[-1]=="/":
+			j=i[:-2].rfind("/")
+			name=i[j+1:-1]
+			rname=i[:j]+"/"
+			if rname in folderpagelist.keys():
+				icon=foldericon(folderpagelist[rname],name)
+				folderpagelist[rname].iconlist.append(icon)
+
+	#Take care of moved icons.
+	for a,b in saved_list.items():
+		if b!=None:
+			if b=="*trashed#":
+				i=a.rfind("/")
+				srcname=a[i+1:]
+				srcdirname=a[:i+1]
+				if srcdirname in folderpagelist.keys():
+					for k in folderpagelist[srcdirname].iconlist:
+						if k.name==srcname:
+							folderpagelist[srcdirname].iconlist.remove(k)
+							trash.iconlist.append(k)
+			elif b== "*trashedf#" :
+				i=a.rfind("/")
+				srcname=a[i+1:]
+				srcdirname=a[:i+1]				
+				if srcdirname in folderpagelist.keys():
+					for k in folderpagelist[srcdirname].iconlist:
+						if k.name==srcname:
+							folderpagelist[srcdirname].iconlist.remove(k)
+							trash.iconlist.append(k)
+							trash.page_list.append(folderpagelist[a+"/"])
+							del folderpagelist[a+"/"]
+			else:
+				i=a.rfind("/")
+				srcname=a[i+1:]
+				srcdirname=a[:i+1]
+				j=b.rfind("/")
+				dstdirname=b[:j+1]
+				if srcdirname in folderpagelist.keys():
+					if dstdirname in folderpagelist.keys():			
+						for k in folderpagelist[srcdirname].iconlist:
+							if k.name==srcname:
+								folderpagelist[dstdirname].iconlist.append(k)
+								folderpagelist[srcdirname].iconlist.remove(k)
+	
+
 class page(QWidget):
-    def __init__(self,add):
-        super(page,self).__init__()
-        self.windowtitle=add
-        self.setWindowTitle(add)
-        self.resize(500,500)
-        p = self.palette()
-        p.setColor(self.backgroundRole(), Qt.white)
-        self.setPalette(p)
-        self.iconlist=[]
-w=page("/Home/")
+	def __init__(self,add):
+		super(page,self).__init__()
+		self.windowtitle=add
+		self.setWindowTitle(add)
+		self.address=add
+		self.resize(500,500)
+		p = self.palette()
+		p.setColor(self.backgroundRole(), Qt.white)
+		self.setPalette(p)
+		self.iconlist=[]
+	def newfolder(self):
+		tmpfolder=foldericon(self,"Untitled")
+		tmpfolder.is_new=True
+		self.iconlist.append(tmpfolder)
+		yo(folderpagelist,self.windowtitle)
+		#code for context menu
+
+		#self.movelist=[]
+	def cut(self,icon):#page from where stuff will be copied
+		main.movelist.append(icon)
+		self.iconlist.remove(icon)
+		yo(folderpagelist,self.address)
+		#main.update(folderpagelist,self.address)
+	def paste(self):
+ 		if main.movelist != []:
+				self.iconlist=main.movelist+self.iconlist
+				for a in main.movelist:
+					saved_list.update({a.ad+a.name:self.address+a.name})
+			#main.update(folderpagelist,self.address)
+				yo(folderpagelist,self.address)#modifies the page..
+				del main.movelist[:] 
+		pickle.dump(saved_list,open('workfile.pkl','wb'))
+
+	def delete(self,icon):
+		trash.iconlist.append(icon)
+		self.iconlist.remove(icon)
+		saved_list.update({icon.ad+icon.name:"*trashed#"})
+		pickle.dump(saved_list,open('workfile.pkl','wb'))
+		yo(folderpagelist,self.windowtitle)
+	def deletef(self,icon):
+		trash.iconlist.append(icon)
+		self.iconlist.remove(icon)
+		for k in folderpagelist.keys():
+			if k==icon.ad+icon.name+"/":
+				trash.page_list.append(folderpagelist[k])
+				del folderpagelist[k]
+		saved_list.update({icon.ad+icon.name:"*trashedf#"})
+		pickle.dump(saved_list,open('workfile.pkl','wb'))		
+		yo(folderpagelist,self.windowtitle)
+
 def yo(folderpagelist,address):
-    main.clear(main.mainLayout)
-    #main.mainLayout.removeWidget(main.backbutton)
-    #main.mainLayout.removeWidget(main.scroll)
-    main.update(folderpagelist,address)
-    main.show()
+	main.clear(main.mainLayout)
+	main.update(folderpagelist,address)
+	main.show()
+class Trash(page):
+	def __init__(self,add):
+		super(Trash,self).__init__(add)
+		self.page_list=[]
+	def restore(self,icon):
+		if icon.ad in folderpagelist.keys():
+			folderpagelist[icon.ad].iconlist.append(icon)
+			trash.iconlist.remove(icon)
+			del saved_list[icon.ad+icon.name]
+			pickle.dump(saved_list,open('workfile.pkl','wb'))			
+			yo(folderpagelist,"/Trash/")
+	def restoref(self,icon):
+		if icon.ad in folderpagelist.keys():
+			for b in self.page_list:
+				if b.windowtitle==icon.ad+icon.name+"/":
+					folderpagelist.update({icon.ad+icon.name+"/":b})
+			self.iconlist.remove(icon)
+			del saved_list[icon.ad+icon.name]
+			folderpagelist[icon.ad].iconlist.append(icon)
+			pickle.dump(saved_list,open('workfile.pkl','wb'))			
+			yo(folderpagelist,"/Trash/")
 class icon(QLabel):
-    def __init__(self,page,name,imgadd):#decide whether you want to have a variable or just a common address
-        super(icon,self).__init__(page)#each icon is associated with a page
-        self.icon2=QIcon()
-        self.pic=QPixmap(imgadd)#to incude a pic pixmap
-        self.icon2.addPixmap(self.pic,QIcon.Normal,QIcon.On)
-        self.setPixmap(self.icon2.pixmap(128,QIcon.Normal,QIcon.On))#pix map has been assighned its image
-        self.foldername=QLabel(page)#label for the name of folder
-        self.address=QString(name)#just for the sake of naming
-        self.foldername.setText(name)#
-        self.name=name
-        self.foldername.move(self.x()+self.width(),self.y()+self.pic.height()/2-10)#move text to appropriate height
-        self.mousePressEvent = self.gotclickedevent
-        self.foldername.mousePressEvent=self.gotclickedevent
-        self.mouseDoubleClickEvent = self.gotclickedevent
-        self.foldername.mouseDoubleClickEvent=self.gotclickedevent
-        self.pageadd=page.windowtitle
-        #self.installEventFilter(self)
-        self.h=QVBoxLayout()
-        
-        
-        self.txtlabel=QLabel()
-        self.txtlabel.setToolTip(name)
+	def __init__(self,page,name,imgadd):#decide whether you want to have a variable or just a common address
+		super(icon,self).__init__(page)#each icon is associated with a page
+		self.icon2=QIcon()
+		self.pic=QPixmap(imgadd)#to incude a pic pixmap
+		self.icon2.addPixmap(self.pic,QIcon.Normal,QIcon.On)
+		self.setPixmap(self.icon2.pixmap(128,QIcon.Normal,QIcon.On))#pix map has been assighned its image
+		self.foldername=QLabel(page)#label for the name of folder
+		self.address=QString(name)#just for the sake of naming
+		self.page=page
+		self.name=name
+		self.foldername.setText(name)
+		self.foldername.move(self.x()+self.width(),self.y()+self.pic.height()/2-10)#move text to appropriate height
+		self.mousePressEvent = self.gotclickedevent
+		self.foldername.mousePressEvent=self.gotclickedevent
+		self.mouseDoubleClickEvent = self.gotclickedevent
+		self.foldername.mouseDoubleClickEvent=self.gotclickedevent
+		self.ad=page.windowtitle
+		#self.installEventFilter(self)
+		self.h=QVBoxLayout()
+		
+		
+		self.txtlabel=QLabel()
+		self.txtlabel.setToolTip(name)
+		self.is_new=False
+		self.new_label=QLineEdit()
+		self.new_label.returnPressed.connect(self.new_fol)
+		#txtlabel.setFixedSize(130,10)
+		#txtlabel.setStyleSheet("QWidget {background-color:blue}")
+		nname=name
+		if len(name)>15:
+			nname=name[:11]+"..."
+		self.txtlabel.setText(nname)
+		self.txtlabel.setFixedSize(130,20)
+		self.txtlabel.setAlignment(Qt.AlignCenter)
+		self.setAlignment(Qt.AlignCenter)
+	def new_fol(self):
+		self.new_label.hide()
+		txt=self.new_label.text()
+		self.name=str(txt)
+		self.txtlabel.setText(self.name)
+		new_page=page(self.page.windowtitle+self.name+"/")
+		saved_list.update({self.page.windowtitle+self.name+"/":None})
+		pickle.dump(saved_list,open('workfile.pkl','wb'))
+		folderpagelist.update({self.page.windowtitle+self.name+"/":new_page})
+		yo(folderpagelist,self.page.windowtitle)
+		
+		'''
+	def hiddenname():
+		i=15
+		label=QVBoxLayout()
+		label2=QLabel()
+		while ((len(self.name)-15-i)>0):
+			tmp=self.name[i:i+14]
+			
+			label2.setText(tmp)
+			label.addWidget(label2)
+			i=i+15
+		label2.setText(self.name[i:])
+		label.addWidget(label2)
+		return label
+		'''
 
-        #txtlabel.setFixedSize(130,10)
-        #txtlabel.setStyleSheet("QWidget {background-color:blue}")
-        if len(name)>15:
-            name=name[:11]+"..."
-        self.txtlabel.setText(name)
-        self.txtlabel.setFixedSize(130,20)
-        self.txtlabel.setAlignment(Qt.AlignCenter)
-        self.setAlignment(Qt.AlignCenter)
-        
-        '''
-    def hiddenname():
-        i=15
-        label=QVBoxLayout()
-        label2=QLabel()
-        while ((len(self.name)-15-i)>0):
-            tmp=self.name[i:i+14]
-            
-            label2.setText(tmp)
-            label.addWidget(label2)
-            i=i+15
-        label2.setText(self.name[i:])
-        label.addWidget(label2)
-        return label
-        '''
 
+		#self.connect(self.foldername, SIGNAL('clicked()'), self.gotclicked)
+	def move(self,x,y):#overwriting the existing function
+		super(icon,self).move(x,y)
+		self.foldername.move(self.x()+self.width(),self.y()+self.pic.height()/2-10)
 
-        #self.connect(self.foldername, SIGNAL('clicked()'), self.gotclicked)
-    def move(self,x,y):#overwriting the existing function
-        super(icon,self).move(x,y)
-        self.foldername.move(self.x()+self.width(),self.y()+self.pic.height()/2-10)
+	def gotclickedevent(self,event):
+		#self.emit(QtCore.SIGNAL('clicked()'))
+		if event.type()==QEvent.MouseButtonPress:
+			if event.button()==Qt.LeftButton:
+				self.leftclickevent()
+				print("just got left clicked")
+				#callfunction for left click on folder
+				#since left click function has nothing special work to do even  if it is called with double click it won't matter
+				#STILL FIND A METHOD TO MAKE CLICK AND DOUBLECLICK ACTIONS SEPARATE
+			elif event.button()==Qt.RightButton:
+				print("just got right clicked")
+				self.rightclickevent()
+				#call function for right click on folder
+		elif event.type()==QEvent.MouseButtonDblClick:
+			self.doubleclickevent()
+			print("just got double clicked")
+	
 
-    def gotclickedevent(self,event):
-        #self.emit(QtCore.SIGNAL('clicked()'))
-        if event.type()==QEvent.MouseButtonPress:
-            if event.button()==Qt.LeftButton:
-                self.leftclickevent()
-                print("just got left clicked")
-                #callfunction for left click on folder
-                #since left click function has nothing special work to do even  if it is called with double click it won't matter
-                #STILL FIND A METHOD TO MAKE CLICK AND DOUBLECLICK ACTIONS SEPARATE
-            elif event.button()==Qt.RightButton:
-                print("just got right clicked")
-                self.rightclickevent()
-                #call function for right click on folder
-        elif event.type()==QEvent.MouseButtonDblClick:
-            self.doubleclickevent()
-            print("just got double clicked")
-    
+	def leftclickevent(self):
+		pass
+ 
+	def rightclickevent(self):
+		pass			
+	def doubleclickevent(self):
+		'''
+		main.clear(main.layout)
+		main.update(folderpagelist,self.ad+self.name+"/")
+		
+		main.show() 
+		'''
 
-    def leftclickevent(self):
-        pass
+	def show(self):
+		super(foldericon,self).show()
+		self.foldername.show()  
 
-    def rightclickevent(self):
-        pass            
-    def doubleclickevent(self):
-        '''
-        main.clear(main.layout)
-        main.update(folderpagelist,self.pageadd+self.name+"/")
-        
-        main.show() 
-        '''
-
-    def show(self):
-        super(foldericon,self).show()
-        self.foldername.show()  
-
-        
+		
 class foldericon(icon):
-    def __init__(self,page,name):
-        super(foldericon,self).__init__(page,name,'/home/trueutkarsh/Pictures/downloadfolderfinal.png')
-    def gotclickedevent(self,event):
-        super(foldericon,self).gotclickedevent(event)
-    def doubleclickevent(self):
-        
-        main.clear(main.mainLayout)
-        #main.mainLayout.removeWidget(main.backbutton)
-        #main.mainLayout.removeWidget(main.scroll)
-        main.update(folderpagelist,self.pageadd+self.name+"/")
-        
+	def __init__(self,page,name):
+		super(foldericon,self).__init__(page,name,'folder.png')
+	def gotclickedevent(self,event):
+		super(foldericon,self).gotclickedevent(event)
+	def doubleclickevent(self):
+		
+		main.clear(main.mainLayout)
+		#main.mainLayout.removeWidget(main.backbutton)
+		#main.mainLayout.removeWidget(main.scroll)
+		main.update(folderpagelist,self.ad+self.name+"/")
+		main.show()
+		main.curradd=self.ad+self.name+"/" 
+	def contextMenuEvent(self, event):
+		#index = self.indexAt(event.pos())
+		self.menu = QMenu()
+		delete=QAction('Delete',self)
+		self.menu.addAction(delete)
+		delete.triggered.connect(lambda x:folderpagelist[main.curradd].deletef(self))
+		restore=QAction('Restore',self)
+		self.menu.addAction(restore)
+		restore.triggered.connect(lambda x:trash.restoref(self))
+		self.menu.popup(QCursor.pos())
 
-        main.show() 
-    #define leftclickevent,rightclickevent,doubleclickevent
+	#define leftclickevent,rightclickevent,doubleclickevent
 
 class fileicon(icon):
-    def __init__(self,page,name):
-        super(fileicon,self).__init__(page,name,'/home/trueutkarsh/Pictures/documents.jpg') 
-    def contextMenuEvent(self, event):
-        #index = self.indexAt(event.pos())
-        self.menu = QMenu()
-        renameAction = QAction('Exit',self)
-        Download = QAction('Download',self)
-        #renameAction.triggered.connect(download)
-        self.menu.addAction(Download)
-        self.menu.popup(QCursor.pos())
+	def __init__(self,page,name):
+		super(fileicon,self).__init__(page,name,'file.png') 
+	def contextMenuEvent(self, event):
+		#index = self.indexAt(event.pos())
+		self.menu = QMenu()
+		renameAction = QAction('Exit',self)
+		Download = QAction('Download',self)
+		delete=QAction('Delete',self)
+		cut=QAction('Cut',self)
+		paste=QAction('Paste',self)
+		self.menu.addAction(paste)
+		self.menu.addAction(Download)
+		self.menu.addAction(cut)
+		self.menu.addAction(delete)
+		restore=QAction('Restore',self)
+		self.menu.addAction(restore)
+		restore.triggered.connect(lambda x:trash.restore(self))
+		Download.triggered.connect(lambda x:File.download(self.name))
+		cut.triggered.connect(lambda x:folderpagelist[main.curradd].cut(self))#change here
+		paste.triggered.connect(lambda x:main.paste())
+		delete.triggered.connect(lambda x:folderpagelist[main.curradd].delete(self))
+		self.menu.popup(QCursor.pos())
 
-    #define leftclickevent,rightclickevent,doubleclickevent
+	#define leftclickevent,rightclickevent,doubleclickevent
 def makebrowser(address,folderpagelist,currpage):
-    num=address.count('/')
-    if num==1:#its a file
-        for i in currpage.iconlist:
-            if i.name==address[1:]:
-                return
+	num=address.count('/')
+	if num==1:#its a file
+		for i in currpage.iconlist:
+			if i.name==address[1:]:
+				return
 
 
-        tempfileicon=fileicon(currpage,address[1:])#change here
-        currpage.iconlist.append(tempfileicon)        
-        return
-    elif num==0:#its a file
-        for i in currpage.iconlist:
-            if i.name==address:
-                return
+		tempfileicon=fileicon(currpage,address[1:])#change here
+		currpage.iconlist.append(tempfileicon)		
+		return
+	elif num==0:#its a file
+		for i in currpage.iconlist:
+			if i.name==address:
+				return
 
 
-        tempfileicon=fileicon(currpage,address)#change here
-        currpage.iconlist.append(tempfileicon)        
-        return        
+		tempfileicon=fileicon(currpage,address)#change here
+		currpage.iconlist.append(tempfileicon)		
+		return		
 
-    else:#its a folder
-        add=address.strip()
-        i=(add[1:]).find('/')
-        name=add[1:i+1]
-        print(name)
-        remainingadd=add[i+1:]
-        print(remainingadd)
-        newpagename=currpage.windowtitle + name+'/'
-        if newpagename not in folderpagelist.keys():
-            temppage=page(newpagename)
-            folderpagelist.update({newpagename:temppage})
-            tempfoldicon=foldericon(currpage,name) #change here
-            currpage.iconlist.append(tempfoldicon)
-        makebrowser(remainingadd,folderpagelist,folderpagelist[newpagename])    
-            
+	else:#its a folder
+		add=address.strip()
+		i=(add[1:]).find('/')
+		name=add[1:i+1]
+		print(name)
+		remainingadd=add[i+1:]
+		print(remainingadd)
+		newpagename=currpage.windowtitle + name+'/'
+		if newpagename not in folderpagelist.keys():
+			temppage=page(newpagename)
+			folderpagelist.update({newpagename:temppage})
+			tempfoldicon=foldericon(currpage,name) #change here
+			currpage.iconlist.append(tempfoldicon)
+		makebrowser(remainingadd,folderpagelist,folderpagelist[newpagename])	
+			
 class Main(QMainWindow):
-    
+	
 
-    def __init__(self,folderpagelist,address,parent = None):
-            super(Main, self).__init__(parent)
-            self.centralWidget=QWidget()
-            self.setCentralWidget(self.centralWidget)
+	def __init__(self,folderpagelist,address,parent = None):
+			super(Main, self).__init__(parent)
+			self.centralWidget=QWidget()
+			self.setCentralWidget(self.centralWidget)
+			#self.mainHLayout=QHBoxLayout()
+			#self.mainVLayout=QVBoxLayout()
+			self.mainLayout=QGridLayout()
+			self.container=QWidget()
+			self.scroll=QScrollArea()
+			self.layout=QGridLayout()
+			self.backicon=QIcon()
+			self.home=QIcon()
+			self.trash=QIcon()
+			self.curradd=address
+			self.movelist=[]
+			a=QSize(90,90)
+			self.backicon.addFile('back.png',a,QIcon.Normal,QIcon.On)
+			self.home.addFile('home.png',a,QIcon.Normal,QIcon.On)
+			self.trash.addFile('trash.png',a,QIcon.Normal,QIcon.On)
+	def update(self,folderpagelist,address):
+		self.hlayout=QHBoxLayout()
+		self.layout=QGridLayout()
+		self.container=QWidget()
+		self.scroll=QScrollArea()
+		self.layout=QGridLayout()
+		self.backbutton=QPushButton(self.backicon,"Back",self.centralWidget)
+		self.homebutton=QPushButton(self.home,"Home",self.centralWidget)
+		self.trashbutton=QPushButton(self.trash,"Trash",self.centralWidget)
+		self.backbutton.setFixedSize(60,24)
+		self.homebutton.setFixedSize(60,24)
+		self.trashbutton.setFixedSize(60,24)
+		self.backbutton.clicked.connect(self.lp)
+		self.homebutton.clicked.connect(self.homef)
+		self.trashbutton.clicked.connect(self.trashf)
+		#self.mainVLayout.addWidget(self.homebutton)
+		#self.mainVLayout.addWidget(self.trashbutton)
+		###
+		folderpagelist[address].setLayout(self.layout)
+		self.ad=address
+		k=0
+		j=0
+		i=0
+		self.positions=[] 
+		while(i<len(folderpagelist[address].iconlist)):
+			j=0
+			while(j<4 and i<len(folderpagelist[address].iconlist )):
+					
+				self.positions=self.positions+[(k,j)]
+				j=j+1
+				i=i+1
+			k=k+1
+			
+			#pos1=QMouseEvent.pos()
+			#m=QMouseEvent()
+			
+		for position,icon in zip(self.positions,folderpagelist[address].iconlist):
+				
+			'''
+				h=QVBoxLayout()
+				label=Newlabel()
+				txtlabel=QLabel()
+				txtlabel.setText("Documents")
+				h.addWidget(txtlabel)
+				label.position=position
+				label.setPixmap(icon.pixmap(size,QIcon.Normal,state))
+				QtCore.QObject.connect(label, QtCore.SIGNAL('clicked()'), label.lp)
+				w.addWidget(label,*position)
+				h.addStretch(1)
+				w.addItem(h,*position)
+			'''
+			overall=QVBoxLayout()
+			overall.addWidget(icon)
+			if  icon.is_new==False:
+				icon.h.addWidget(icon.txtlabel)
+				overall.addWidget(icon.txtlabel)
+			else:
+				icon.h.addWidget(icon.new_label)
+				overall.addWidget(icon.new_label)
+				icon.is_new=False	
 
-            self.mainLayout=QGridLayout()
-            self.container=QWidget()
-            self.scroll=QScrollArea()
-            self.layout=QGridLayout()
-            self.backicon=QIcon()
-            a=QSize(90,90)
-            self.backicon.addFile('back.png',a,QIcon.Normal,QIcon.On)
-    def update(self,folderpagelist,address):
-        tmplist={}
-        for a,b in folderpagelist.items():
-            tmplist.update({a:b})
-        print address
-        self.layout=QGridLayout()
-        self.container=QWidget()
-        self.scroll=QScrollArea()
-        self.layout=QGridLayout()
-        self.backbutton=QPushButton(self.backicon,"Back",self.centralWidget)
-        self.backbutton.setFixedSize(60,24)
-        self.backbutton.clicked.connect(self.lp)
-        ###
-        folderpagelist[address].setLayout(self.layout)
-        self.ad=address
-        k=0
-        j=0
-        i=0
-        self.positions=[]
-        self.positions2=[]   
-        while(i<len(folderpagelist[address].iconlist)):
-            j=0
-            while(j<4 and i<len(folderpagelist[address].iconlist )):
-                    
-                self.positions=self.positions+[(k,j)]
-                self.positions2=self.positions2+[(k+1,j)]
-                j=j+1
-                i=i+1
-            k=k+1
-            
-            #pos1=QMouseEvent.pos()
-            #m=QMouseEvent()
-            
-        for position,icon,position2 in zip(self.positions,folderpagelist[address].iconlist,self.positions2):
-                
-            '''
-                h=QVBoxLayout()
-                label=Newlabel()
-                txtlabel=QLabel()
-                txtlabel.setText("Documents")
-                h.addWidget(txtlabel)
-                label.position=position
-                label.setPixmap(icon.pixmap(size,QIcon.Normal,state))
-                QtCore.QObject.connect(label, QtCore.SIGNAL('clicked()'), label.lp)
-                w.addWidget(label,*position)
-                h.addStretch(1)
-                w.addItem(h,*position)
-            '''
-            overall=QVBoxLayout()
-            icon.h.addWidget(icon.txtlabel)   
-            overall.addWidget(icon)
-            overall.addWidget(icon.txtlabel)
+			#txtlabel.move(0,100)
+			#self.h.addStretch(2)
+	   
+			#self.layout.addItem(self.h,*position2)
 
-            #txtlabel.move(0,100)
-            #self.h.addStretch(2)
-       
-            #self.layout.addItem(self.h,*position2)
+			#self.layout.addWidget(txtlabel)
+			#icon.setFixedSize(130,20)  
 
-            #self.layout.addWidget(txtlabel)
-            #icon.setFixedSize(130,20)  
+			self.layout.addItem(overall,*position)
 
-            self.layout.addItem(overall,*position)
+			
+			
+		self.container.setLayout(self.layout)
+		
+		self.scroll.setWidget(self.container)
+		self.mainLayout.addWidget(self.homebutton)
+		self.mainLayout.addWidget(self.trashbutton)
+		self.mainLayout.addWidget(self.backbutton)
+		self.mainLayout.addWidget(self.scroll)
+		#self.mainHLayout.addItem(self.mainLayout)
+		#self.mainHLayout.addItem(self.mainVLayout)
+		self.centralWidget.setLayout(self.mainLayout)	
+		#self.centralWidget.setMaximumSize(600,600)
+	def homef(self):
+		yo(folderpagelist,"/Home/")
+	def trashf(self):
+		yo(folderpagelist,"/Trash/")
+	def lp(self):
+		count=self.ad[:-1].count('/')
+		if count>1:
+			i=self.ad[:-1].rfind("/")
+			yo(folderpagelist,self.ad[:i+1])
+			self.curradd=self.ad[:i+1]
+			print("curr add is" +self.curradd)
+		else:
+			print("You are in base directory")	
+		#main.clear(main.layout)
+		#main.update(folderpagelist,self.ad[:i+1])
+		#main.show()
 
-            
-            
-        self.container.setLayout(self.layout)
-        
-        self.scroll.setWidget(self.container)
-        self.mainLayout.addWidget(self.backbutton)
-        self.mainLayout.addWidget(self.scroll)
-        self.centralWidget.setLayout(self.mainLayout)    
-        #self.centralWidget.setMaximumSize(600,600)
-        
-    def lp(self):
-        count=self.ad[:-1].count('/')
-        if count>1:
-        	i=self.ad[:-1].rfind("/")
-        	yo(folderpagelist,self.ad[:i+1])
-        else:
-        	print("You are in home directory")	
-        #main.clear(main.layout)
-        #main.update(folderpagelist,self.ad[:i+1])
-        #main.show()
-            
 
-    def clear(self,layout):
-        '''
-        for i in reversed(range(self.layout.count())):
-            self.layout.itemAt(i).widget().setParent(None)
-        '''
 
-        for i in reversed(range(layout.count())):
-            item = layout.itemAt(i)
+	def clear(self,layout):
+		'''
+		for i in reversed(range(self.layout.count())):
+			self.layout.itemAt(i).widget().setParent(None)
+		'''
 
-            if isinstance(item, QWidgetItem):
+		for i in reversed(range(layout.count())):
+			item = layout.itemAt(i)
 
-                item.widget().close()
-            # or
-            # item.widget().setParent(None)
-            elif isinstance(item, QSpacerItem):
-                pass
-            # no need to do extra stuff
-            else:
+			if isinstance(item, QWidgetItem):
 
-                self.clear(item.layout())
+				item.widget().close()
+			# or
+			# item.widget().setParent(None)
+			elif isinstance(item, QSpacerItem):
+				pass
+			# no need to do extra stuff
+			else:
 
-        # remove the item from layout
-            layout.removeItem(item)           
-  
-#class fileicon()
+				self.clear(item.layout())
 
-#w=page("/Home/")
+		# remove the item from layout
+			layout.removeItem(item)
+	def contextMenuEvent(self, event):
+		#index = self.indexAt(event.pos())
+		self.menu = QMenu()
+		renameAction = QAction('Exit',self)
+		paste=QAction('Paste',self)
+		self.menu.addAction(paste)
+		new = QAction('New Folder',self)
+		print self.ad
+		new.triggered.connect(folderpagelist[self.ad].newfolder)
+		self.menu.addAction(new)		
+		#Download.triggered.connect(lambda x:File.download(self.name))
+		#cut.triggered.connect(lambda x:folderpagelist[main.curradd].cut(self))#change here
+		paste.triggered.connect(lambda x:folderpagelist[main.curradd].paste())
+		self.menu.popup(QCursor.pos())
+File=FinalList()
+show_token=False
+splash=None
+main2=None
+status=None
+w=page("/Home/")
+trash=Trash("/Trash/")
 #imgadd='/home/trueutkarsh/Pictures/downloadfolderfinal.png'
+
+
 folderpagelist={}
 folderpagelist.update({"/Home/":w})
 
 
-File=FinalList()
-File.update()
+#stray list is to ensure that workfile.pkl is present to load.
+stray_list={'address':None}
+#saved list is where all cut-paste data will remain persistent.
+try:
+	saved_list=pickle.load(open('workfile.pkl','rb'))
+except:
+	pickle.dump(stray_list,open('workfile.pkl','wb'))
+	saved_list=pickle.load(open('workfile.pkl','rb'))	
+
+class Welcome(QMainWindow):
+	def __init__(self,parent=None):
+		super(Welcome, self).__init__(parent)
+		self.centralwidget=QWidget()
+		self.centralwidget.setFixedSize(250,300)
+		self.layout=QVBoxLayout()
+		Question=QLabel()
+		Question.setText("What do you want to sync?")
+		self.layout.addWidget(Question)
+		gcb=QCheckBox('Google Drive')
+		self.layout.addWidget(gcb)
+		gh=QHBoxLayout()
+		gh.addStretch(1)
+		gv=QVBoxLayout()
+		gu=QHBoxLayout()
+		gp=QHBoxLayout()
+		usrname=QLabel()
+		usrname.setFixedSize(70,10)
+		usrname.setText("Username")
+		passw=QLabel()
+		passw.setFixedSize(70,10)
+		passw.setText("Password")
+		self.ul=QLineEdit()
+		self.ul.setEnabled(False)
+		self.pl=QLineEdit()
+		self.pl.setEnabled(False)
+		gu.addWidget(usrname)
+		gu.addWidget(self.ul)
+		gp.addWidget(passw)
+		gp.addWidget(self.pl)
+		gv.addItem(gu)
+		gv.addItem(gp)
+		gh.addItem(gv)
+		gh.addStretch(40)
+		self.layout.addItem(gh)
+		gcb.stateChanged.connect(self.gfunc)
+		dcb=QCheckBox('Dropbox')
+		self.layout.addWidget(dcb)		
+		dh=QHBoxLayout()
+		dh.addStretch(1)
+		dv=QVBoxLayout()
+		du=QHBoxLayout()
+		dp=QHBoxLayout()
+		usrname=QLabel()
+		usrname.setFixedSize(70,10)
+		usrname.setText("Username")
+		passw=QLabel()
+		passw.setFixedSize(70,10)
+		passw.setText("Password")
+		self.dul=QLineEdit()
+		self.dul.setEnabled(False)
+		self.dpl=QLineEdit()
+		self.dpl.setEnabled(False)
+		du.addWidget(usrname)
+		du.addWidget(self.dul)
+		dp.addWidget(passw)
+		dp.addWidget(self.dpl)
+		dv.addItem(du)
+		dv.addItem(dp)
+		dh.addItem(dv)
+		dh.addStretch(40)
+		self.layout.addItem(dh)
+		dcb.stateChanged.connect(self.dfunc)
+		ocb=QCheckBox('Onedrive')
+		self.layout.addWidget(ocb)		
+		oh=QHBoxLayout()
+		oh.addStretch(1)
+		ov=QVBoxLayout()
+		ou=QHBoxLayout()
+		op=QHBoxLayout()
+		usrname=QLabel()
+		usrname.setFixedSize(70,10)
+		usrname.setText("Username")
+		passw=QLabel()
+		passw.setFixedSize(70,10)
+		passw.setText("Password")
+		self.oul=QLineEdit()
+		self.oul.setEnabled(False)
+		self.opl=QLineEdit()
+		self.opl.setEnabled(False)
+		ou.addWidget(usrname)
+		ou.addWidget(self.oul)
+		op.addWidget(passw)
+		op.addWidget(self.opl)
+		ov.addItem(ou)
+		ov.addItem(op)
+		oh.addItem(ov)
+		oh.addStretch(40)
+		self.layout.addItem(oh)
+		ocb.stateChanged.connect(self.ofunc)
+		self.button=QPushButton()
+		self.button.setText("Done")
+		self.button.clicked.connect(self.insert)
+		self.layout.addWidget(self.button)
+		self.centralwidget.setLayout(self.layout)
+		self.setCentralWidget(self.centralwidget)
+	def insert(self):
+		account.gname=str(self.ul.text()).strip()
+		account.gpass=str(self.pl.text()).strip()
+		account.dname=str(self.dul.text()).strip()
+		account.dpass=str(self.dpl.text()).strip()
+		account.oname=str(self.oul.text()).strip()
+		account.opass=str(self.opl.text()).strip()
+		if account.gname!='':
+			gdrivefile.tobeauthorized=True
+		if account.oname!='':
+			odrivefile.tobeauthorized=True
+		if account.dname!='':
+			dropboxfile.tobeauthorized=True
+		File.update()
+		if dropboxfile.authorized==True or gdrivefile.authorized==True or odrivefile.authorized==True:
+			self.hide()
+			for x,y in File.finallist.items():
+				try:
+					makebrowser(y.address,folderpagelist,w)
+				except:
+					print("error in this address"+ y.address)
+			process_list()
+			process_folderpagelist()
+			folderpagelist.update({"/Trash/":trash})
+			global main
+			main.update(folderpagelist,"/Home/")
+
+			main.show()
+
+
+	def gfunc(self,state):
+		if state==Qt.Checked:
+			self.ul.setEnabled(True)
+			self.pl.setEnabled(True)
+		else:
+			self.ul.setEnabled(False)
+			self.pl.setEnabled(False)
+			self.ul.setText('')
+			self.pl.setText('')			
+	def dfunc(self,state):
+		if state==Qt.Checked:
+			self.dul.setEnabled(True)
+			self.dpl.setEnabled(True)
+		else:
+			self.dul.setEnabled(False)
+			self.dpl.setEnabled(False)
+			self.dul.setText('')
+			self.dpl.setText('')	
+	def ofunc(self,state):
+		if state==Qt.Checked:
+			self.oul.setEnabled(True)
+			self.opl.setEnabled(True)
+		else:
+			self.oul.setEnabled(False)
+			self.opl.setEnabled(False)
+			self.oul.setText('')
+			self.opl.setText('')
+		'''				  
+class start_screen(QLabel):
+	def __init__(self,parent=None):
+		pic=QPixmap("syncitall.png")
+		self.setPixmap(pic)
+		'''
+
+
+
+#class fileicon()
+#add=main2()
+#a=odrivefile(add)
+#a.upload()
+# Simulate something that takes time
+main2=Welcome()
+#splash.finish(main2)
+main=Main(folderpagelist,"/Home/")
+main2.show()
+
+status=abc.exec_()
 #File.printaddress()#-TO PRINT FINAL LIST  UNCOMMENT THIS LINE
 
 
-folderpagelist={}
-folderpagelist.update({"/Home/":w})
-for x,y in File.finallist.items():
-	try:
-		makebrowser(y.address,folderpagelist,w)
-	except:
-		print("error in this address"+ y.address)
-main=Main(folderpagelist,"/Home/")
-main.update(folderpagelist,"/Home/")
-main.show()
-sys.exit(abc.exec_())
+
+
+
+
+
 
 
 
