@@ -222,8 +222,11 @@ class gdrivefile(file):
 	def makefinallist(finallist,filelist):
 
 		for name in filelist:
-			tmpgdrivefile=gdrivefile(name['title'])
-			finallist.update({str(name['title']):tmpgdrivefile})
+			if '$x' not in name['title']:
+				tmpgdrivefile=gdrivefile(name['title'])
+				finallist.update({str(name['title']):tmpgdrivefile})
+			else:
+				pass	
 						
 class odrivefile(file):
 	filelist=None
@@ -423,39 +426,38 @@ class odrivefile(file):
 		
 		for name in filelist:
 			#name.replace(' ','\ ')
-			tempcontent=commands.getstatusoutput("onedrive-cli info '"+name+"'")[1]
-			#print(tempcontent)
-			
-			typestrt=tempcontent.find('type:')
-			typend=tempcontent[typestrt:].find('\n')
-			filetype=tempcontent[typestrt+6:typestrt+typend].strip()
-			print(filetype)
-			#print('PROBLEM HERE')			
-			if filetype=='folder' or filetype=='album':
-				folderlist.append(name+'/')
-				for x in folderlist:
-					foldername=foldername+x
-				print(foldername)
-				foldername.strip()	
-					
-				templistcontent=commands.getstatusoutput("onedrive-cli ls '" + foldername[:-1] +"'")[1]
-				templist=templistcontent.split('\n')
-				for x in range(len(templist)):
-					templist[x]=templist[x][2:]
-				for x in templist:
-					print(foldername+x)					
-				odrivefile.makefinallist(finallist,templist,folderlist)
-			else:
-				foldername='/'
-				for x in folderlist:
-					foldername=foldername+x
-				tmpodrivefile=odrivefile(foldername+name)
-				#y={name:tmpodrivefile}
-				finallist.update({name:tmpodrivefile})
-								
-					
-		if folderlist!=[]:	
-			folderlist.pop()		
+			if '$x' not in name:
+				tempcontent=commands.getstatusoutput("onedrive-cli info '"+name+"'")[1]
+				#print(tempcontent)
+				
+				typestrt=tempcontent.find('type:')
+				typend=tempcontent[typestrt:].find('\n')
+				filetype=tempcontent[typestrt+6:typestrt+typend].strip()
+				print(filetype)
+				#print('PROBLEM HERE')			
+				if filetype=='folder' or filetype=='album':
+					folderlist.append(name+'/')
+					for x in folderlist:
+						foldername=foldername+x
+					print(foldername)
+					foldername.strip()	
+						
+					templistcontent=commands.getstatusoutput("onedrive-cli ls '" + foldername[:-1] +"'")[1]
+					templist=templistcontent.split('\n')
+					for x in range(len(templist)):
+						templist[x]=templist[x][2:]
+					for x in templist:
+						print(foldername+x)					
+					odrivefile.makefinallist(finallist,templist,folderlist)
+				else:
+					foldername='/'
+					for x in folderlist:
+						foldername=foldername+x
+					tmpodrivefile=odrivefile(foldername+name)
+					#y={name:tmpodrivefile}
+					finallist.update({name:tmpodrivefile})						
+			if folderlist!=[]:	
+				folderlist.pop()		
 									
 class dropboxfile(file):
 	client=None
@@ -619,14 +621,15 @@ class page(QWidget):
 	def paste(self):
  		if main.movelist != []:
 				self.iconlist=main.movelist+self.iconlist
-			#main.update(folderpagelist,self.address)
+				#main.update(folderpagelist,self.address)
 				yo(folderpagelist,self.address)#modifies the page..
 				del main.movelist[:]
-	def newfile(self,filename):
-		tempfileicon=fileicon(self,filename)
-		self.iconlist.append(tempfileicon)
-		yo(folderpagelist,self.address)
-
+		'''			
+		def newfile(self,filename):
+			tempfileicon=fileicon(self,filename)
+			self.iconlist.append(tempfileicon)
+			yo(folderpagelist,self.address)
+		'''	
 		 
 def yo(folderpagelist,address):
 	main.clear(main.mainLayout)
@@ -980,7 +983,7 @@ def splitsizef(storelist,filesize):
 			b=splitsizef(storelist,filesize)			
 		else:
 			b=int(storelist[0]/(1024*1024))	
-	return b		
+	return b		#to determine in what miniumumsize file will be chunked	
 
 
 def splitfile(fileadd,filename,splitsize):
@@ -994,7 +997,7 @@ def splitfile(fileadd,filename,splitsize):
 	dirlist=os.listdir(os.getcwd())#list of names of files
 
 	for x in dirlist:
-		os.rename(os.getcwd()+'/'+x,os.getcwd()+'/'+filename+'$'+x)#rename them so that they have individual identity 
+		os.rename(os.getcwd()+'/'+x,os.getcwd()+'/'+filename+'$'+x)#rename them so that they have individual identity #splits the file
 
 
 
@@ -1050,7 +1053,7 @@ def upload(storelist,addfile=None,bigdfile=None):
 	#ssplitsize=2
 	iscorrect=True
 	isfilesplitted=False
-	if 2>1:
+	try :
 		if filesize>totalfreespace:
 			print("File size too large.Insufficient space")
 			print("total spcae="+str(totalfreespace)+"filesize= "+str(filesize))
@@ -1229,13 +1232,13 @@ def upload(storelist,addfile=None,bigdfile=None):
 								else:
 									print("Unusual error please close the program and contact developers.")	
 									iscorrect=False	
-	'''						print("totalfreespace free space now is="+str(sum(storelist)))		
+								print("totalfreespace free space now is="+str(sum(storelist)))		
 	except Exception, e:
 		print(str(Exception))
 		print(str(e))
 		print("Sorry the action was unsuccessful.File size could'nt be uploaded.Please free your drive or check your connection")
 		iscorrect=False																	
-	'''	
+		
 	if iscorrect:
 		if isfilesplitted:	
 			cfold=os.getcwd()		
@@ -1246,8 +1249,11 @@ def upload(storelist,addfile=None,bigdfile=None):
 			shutil.rmtree("largefile "+filename)#DO SOMETHING ABOUT IT
 			print(os.listdir(os.getcwd()))
 		if bigdfile==None:#it is a complete file not a part
-			File.finallist.update({filename:dfile})	
-			folderpagelist[main.curradd].newfile(filename)
+			File.finallist.update({filename:dfile})
+			tempfileicon=fileicon(folderpagelist[main.curradd],filename)
+			main.movelist.append(tempfileicon)
+			folderpagelist[main.curradd].paste()	
+			
 		else:#it is a part of some file
 			bigdfile.update(dfile)		
 	else:
@@ -1352,14 +1358,14 @@ folderpagelist.update({"/Home/":w})
 File=FinalList()
 File.update()
 #File.printaddress()#-TO PRINT FINAL LIST  UNCOMMENT THIS LINE
-gdrivefile.currentquota=[1,7*1024*1024]
+gdrivefile.currentquota=[1,5*1024*1024]
 odrivefile.currentquota=[2,6*1024*1024]
-dropboxfile.currentquota=[3,4*1024*1024]
+dropboxfile.currentquota=[3,6*1024*1024]
 storelist=[odrivefile.currentquota[1],gdrivefile.currentquota[1],dropboxfile.currentquota[1]]#and other drives can be added further dropboxfile.currentquota[1]-removed dropbox
-
+'''
 folderpagelist={}
 folderpagelist.update({"/Home/":w})
-
+'''
 for x,y in File.finallist.items():
 	try:
 		makebrowser(y.address,folderpagelist,w)
