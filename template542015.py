@@ -34,18 +34,18 @@ import pickle
 import sys
 from PyQt4.QtGui import  *
 from PyQt4.QtCore import *
-saved_list={}
-'''
+
+
 def main1():
 	adda=QString()
-	adda=QFileDialog.getExistingDirectory()
+	adda=str(QFileDialog.getExistingDirectory())
 	return adda
 	# main2() gets file name through dialog box.
 def main2():
 	addb=QString()
-	addb=QFileDialog.getOpenFileName()
-	return addb	
-'''
+	addb=str(QFileDialog.getOpenFileName())
+	return addb
+
 class account:
 	gname=''
 	gpass=''
@@ -53,6 +53,7 @@ class account:
 	opass=''
 	dname=''
 	dpass=''
+
 class file:#bas class file
 	authorized=False#whether authorization has taken place or not
 	listupdated=False#whether file list is updated or not
@@ -72,7 +73,8 @@ class gdrivefile(file):
 	drive_service=None
 	filelist=[]
 	currentquota=None
-	downloadfilepath='/home/utkarsh/Downloads/Syncitall Goodle drive Downloads'
+	supportslargeupload=True
+	maxupldsize=None
 
 	def upload(self):
 		if gdrivefile.authorized==False :
@@ -115,21 +117,34 @@ class gdrivefile(file):
 		#print 'Go to the following link in your browser: ' + authorize_url
 
 		try:		
-			driver=webdriver.PhantomJS()#depends on your browser
+			driver=webdriver.Firefox()#change here
 			driver.get(authorize_url)
+			cookies=driver.get_cookies()
+			for cookie in cookies:
+				driver.add_cookie(cookie)
+			'''				
+			#login=driver.find_element_by_name("signIn")
+			#login.send_keys(Keys.RETURN)
+			#accept= WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.ID, "submit_approve_access")))
+			#accept.send_keys(Keys.RETURN)
+				#accept.click()
+			#a=WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.ID, "code")))
+				
+			#code=a.get_attribute('value')	
+			'''	
 			WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.ID, "Email"))).send_keys(account.gname)
 			WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.ID, "Passwd"))).send_keys(account.gpass)	
 			WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.ID, "signIn"))).click()		
 			WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.ID, "submit_approve_access"))).click()
 			code1= WebDriverWait(driver, 120).until(EC.element_to_be_clickable((By.ID, "code")))
 			code=code1.get_attribute('value')		
+
 			driver.quit()
 			gdrivefile.authorized=True
 			print "Google drive authorized"
 		except:
 			print "Could not authorize to Google Drive"
 			return None
-#3>>>>>>> origin/master
 		#code = raw_input('Enter verification code: ').strip()#change here
 		credentials = flow.step2_exchange(code)
 
@@ -176,12 +191,18 @@ class gdrivefile(file):
 	'''	
 	#NO USE OF IT SINCE
 					
-	def download(self):
+	def download(self,add=None):
 		if gdrivefile.listupdated==False:
 			gdrivefile.updatefilelist()
-		gdrivefile.listupdated=True	
+		gdrivefile.listupdated=True
+		file2download=None
+		if '/' in self.address:
+			i=self.address.rfind('/')
+			filename=self.address[i+1:]
+		else:
+			filename=self.address			
 		for a in gdrivefile.filelist:
-			if a['title']==self.address:
+			if a['title']==filename:
 				file2download=a
 				break
 		if file2download==None:
@@ -195,10 +216,13 @@ class gdrivefile(file):
 				if resp.status==200:
 					#print('Status',resp)
 					downloadedfile.write(content)
-					add2=main1()
+					if add==None:#change here
+						add2=main1()
+					else:
+						add2=add	
+
 					src=add2+"/"+ file2download.get('title')
 					dest=os.getcwd()+"/"+ file2download.get('title')
-#>>>>>>> origin/master
 					#shutil.move(dest,src)	
 
 
@@ -217,24 +241,21 @@ class gdrivefile(file):
 			gdrivefile.authorize()
 			gdrivefile.authorized=True
 		about=gdrivefile.drive_service.about().get().execute()	
-		gdrivefile.currentquota=[about['quotaBytesTotal'],about['quotaBytesUsed']]
+		gdrivefile.currentquota=[int(about['quotaBytesTotal']),int(about['quotaBytesTotal'])-int(about['quotaBytesUsed'])]
 	@staticmethod
 	def makefinallist(finallist,filelist):
 
 		for name in filelist:
-			tmpgdrivefile=gdrivefile(name['title'])
-			finallist.update({str(name['title']):tmpgdrivefile})
-		
-				
-				
-
-  			
-
+			if '$x' not in name['title']:
+				tmpgdrivefile=gdrivefile(name['title'])
+				finallist.update({str(name['title']):tmpgdrivefile})	
+						
 class odrivefile(file):
 	tobeauthorized=False
 	filelist=None
 	currentquota=None
-	downloadfilepath='/home/utkarsh/Downloads/Syncitall Onedrive Downloads'
+	supportslargeupload=False
+	maxupldsize=90*1024*1024
 	def upload(self):#problem-provided method does'nt allows upload of files with path name having spaces
 		#code for upload
 		if odrivefile.authorized ==False:
@@ -248,7 +269,6 @@ class odrivefile(file):
 			#else
 			'''	
 			l=self.address.rfind('/')
-
 			name=self.address[l+1:].strip()
 			folder=self.address[:l+1]
 			name2=name.replace(" ","\ ")
@@ -284,7 +304,7 @@ class odrivefile(file):
 		try:
 
 			oscope='onedrive.readwrite'#scope=how do u want to get access(PROBLEM HERE)=REQUESTED SCOPE DOES'NT MATCHES GIVEN SCOPE
-			driver=webdriver.PhantomJS()
+			driver=webdriver.Firefox()# change herer
 			authurl= 'https://login.live.com/oauth20_authorize.srf?scope='+oscope+'&redirect_uri=https%3A%2F%2Flogin.live.com%2Foauth20_desktop.srf&response_type=code&client_id=000000004015642C'
 			driver.get(authurl)
 			WebDriverWait(driver, 120).until(EC.element_to_be_clickable((By.ID, "i0116"))).send_keys(account.oname)
@@ -311,7 +331,8 @@ class odrivefile(file):
 		for x in range(len(odrivefile.filelist)):
 			odrivefile.filelist[x]=odrivefile.filelist[x][2:]
 
-		
+		odrivefile.filelist=filter (lambda x: '$x' not in x ,odrivefile.filelist)
+		print(odrivefile.filelist)
 		odrivefile.listupdated=True
 		#print(odrivefile.filelist)
 
@@ -321,16 +342,24 @@ class odrivefile(file):
 		if odrivefile.authorized ==False:
 			odrivefile.authorize()
 			odrivefile.authorized=True
-		odrivefile.currentquota=commands.getstatusoutput('onedrive-cli quota')[1].strip()	
+		x=commands.getstatusoutput('onedrive-cli quota')[1].strip().split('\n')
+		a=x[0].find(':')
+		free=x[0][a+2:]
+		b=x[1].find(':')
+		total=x[1][b+2:]
+		if free[-1]=='G':
+			free=int(float(free[:-1]))*1024*1024*1024
+		elif free[-1]=='M':
+			free=int(float(free[:-1]))*1024*1024
+			
+		odrivefile.currentquota=[int(float(total[:-1]))*1024*1024*1024,free]
+		
+
 
 		'''
 		FOR ONEDRIVE FILES GET FILE FUNCTION AND DOWNLOAD FUNCTIONS HAVE BEEN MERGED 
 		BECAUSE I COUDNT PASS THE VARIABLE BY REFERENCE.
 		FIND SOME METHOD TO DO SO AND 
-
-
-
-
 			@staticmethod
 			def getfile():
 				if odrivefile.listupdated==False:
@@ -350,11 +379,10 @@ class odrivefile(file):
 						for	x in ref:
 							print(x)
 					odrivefile.getfile(filename)			
-
 		'''
 	#@staticmethod
 	#CHANGES TO BE MADE HERE
-	def download(self):
+	def download(self,add=None):
 		if odrivefile.listupdated==False:
 			odrivefile.updatefilelist()
 			odrivefile.listupdated=True
@@ -373,12 +401,15 @@ class odrivefile(file):
 		#ofile2download=raw_input("Enter address of file on one drive with format folder1/folder2..../filename").strip()
 		ofile2download=self.address
 		#make something so it can get to his file easily(presently avoid folders)
-		tempcontent=commands.getstatusoutput("onedrive-cli get '"+ofile2download+"'")
+		tempcontent=commands.getstatusoutput("onedrive-cli get '"+filename+"'")
 		downloadedfile.write(tempcontent[1])
 		src=os.getcwd()+'/'+filename
-		d=main1()
-		if d=='d':
-			d=odrivefile.downloadfilepath
+
+		if add==None:#chnge here
+			d=main1()
+		else:
+			d=add	
+
 		d=d+'/'+filename	
 		os.rename(src,d)
 		downloadedfile.close()			
@@ -424,21 +455,18 @@ class odrivefile(file):
 		for name in filelist:
 			#name.replace(' ','\ ')
 			tempcontent=commands.getstatusoutput("onedrive-cli info '"+name+"'")[1]
-			#print(tempcontent)
-			
+			#print(tempcontent)	
 			typestrt=tempcontent.find('type:')
 			typend=tempcontent[typestrt:].find('\n')
 			filetype=tempcontent[typestrt+6:typestrt+typend].strip()
 			print(filetype)
-			#print('PROBLEM HERE')			
+				#print('PROBLEM HERE')			
 			if filetype=='folder' or filetype=='album':
-				foldername=''
 				folderlist.append(name+'/')
 				for x in folderlist:
 					foldername=foldername+x
 				print(foldername)
-				foldername.strip()	
-					
+				foldername.strip()			
 				templistcontent=commands.getstatusoutput("onedrive-cli ls '" + foldername[:-1] +"'")[1]
 				templist=templistcontent.split('\n')
 				for x in range(len(templist)):
@@ -446,6 +474,7 @@ class odrivefile(file):
 				for x in templist:
 					print(foldername+x)					
 				odrivefile.makefinallist(finallist,templist,folderlist)
+	
 			else:
 				foldername='/'
 				for x in folderlist:
@@ -453,26 +482,24 @@ class odrivefile(file):
 				tmpodrivefile=odrivefile(foldername+name)
 				#y={name:tmpodrivefile}
 				finallist.update({name:tmpodrivefile})
-								
-					
 		if folderlist!=[]:	
-			folderlist.pop()		
-		
-							
-			
-
+			folderlist.pop()											
 		
 class dropboxfile(file):
 	tobeauthorized=False
 	client=None
 	account=None
+	currentquota=None
+	supportslargeupload=True
+	maxupldsize=None
 	def upload(self):
 		
 		if dropboxfile.authorized==False :
 			dropboxfile.authorize()
 			dropboxfile.authorized=True
 		#code for upload
-		
+		a=self.address.rfind('/')
+		name=self.address[a+1:]
 		f = open(self.address, 'rb')
 		response = dropboxfile.client.put_file(ntpath.basename(self.address), f)
 
@@ -487,8 +514,9 @@ class dropboxfile(file):
 			print "No internet connection"
 			return
 		try:
-			driver=webdriver.PhantomJS()#depends on your browser
+			driver=webdriver.Firefox()#depends on your browser
 			driver.get(authorize_url)
+
 			driver.save_screenshot('screen1.png')
 			(WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.XPATH, '//input[@class="text-input-input autofocus"]')))).send_keys(account.dname)
 			(WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.XPATH, '//input[@class="password-input text-input-input"]')))).send_keys(account.dpass)
@@ -509,16 +537,21 @@ class dropboxfile(file):
 		dropboxfile.account=dropboxfile.client.account_info()
 		#code for authorization	
 	
-	def download(self):
+	def download(self,add=None):
 		if dropboxfile.authorized==False :
 			return None
-		try:		
-			f, metadata = dropboxfile.client.get_file_and_metadata(self.address)
+		try:
+			if '/' in self.address:
+				i=self.address.rfind('/')
+				filename=self.address[i+1:]
+			else:
+				filename=self.address			
+			f, metadata = dropboxfile.client.get_file_and_metadata(filename)
 		except TypeError:
 			file.found=0
-		add=main1()
-		
-		out = open(add+"/"+ntpath.basename(self.address), 'wb')
+		if add==None:#change here	
+			add=main1()			
+		out = open(add+"/"+ntpath.basename(filename), 'wb')
 		out.write(f.read())
 		out.close()
 	@staticmethod
@@ -529,15 +562,14 @@ class dropboxfile(file):
 		#print folder_metadata
 
 		for x in folder_metadata['contents']:
-			if x['is_dir']==False:
-				
-				
-				tmpdrpfile=dropboxfile(x['path'])
-				finallist.update({ntpath.basename(x['path']):tmpdrpfile})
-					
-			else:
-				add=x['path']+"/"
-				dropboxfile.makefilelist(add,finallist)
+			if '$x' not in x['path']:
+				if x['is_dir']==False:
+					tmpdrpfile=dropboxfile(x['path'])
+					finallist.update({ntpath.basename(x['path']):tmpdrpfile})
+						
+				else:
+					add=x['path']+"/"
+					dropboxfile.makefilelist(add,finallist)
 				'''
 		for x in folder_metadata['contents']:
 			if x['is_dir']==False:
@@ -550,6 +582,7 @@ class dropboxfile(file):
 					print rev[0]
 					dropboxfile.client.restore(x['path'],rev[0])
 				'''
+
 	@staticmethod
 	def quota():
 		if dropboxfile.authorized==None:
@@ -559,7 +592,7 @@ class dropboxfile(file):
 			print ("shared : " +str(dropboxfile.account['quota_info']['shared']))
 			print ("quota  : " +str(dropboxfile.account['quota_info']['quota']))
 			print ("normal : " +str(dropboxfile.account['quota_info']['normal']))	
-	
+		currentquota=(int(dropboxfile.account['quota_info']['normal']),int(dropboxfile.account['quota_info']['normal'])-int(dropboxfile.account['quota_info']['quota']))
 	@staticmethod
 	def printlist(add):
 		if dropboxfile.authorized==False:
@@ -576,8 +609,7 @@ class dropboxfile(file):
 			else:
 				add=x['path']+"/"
 				dropboxfile.printlist(add)
-		
-		
+				
 class FinalList:
 	def __init__(self):
 		self.finallist={}
@@ -587,6 +619,8 @@ class FinalList:
 				gdrivefile.authorize()
 				gdrivefile.updatefilelist()
 				gdrivefile.makefinallist(self.finallist,gdrivefile.filelist)
+				gdrivefile.getquota()
+				storelist.append(gdrivefile.currentquota[1])
 			else:
 				print "Could not make filelist"
 		if dropboxfile.tobeauthorized==True:
@@ -594,6 +628,8 @@ class FinalList:
 				dropboxfile.authorize()
 				add='/'
 				dropboxfile.makefilelist(add,self.finallist)
+				dropboxfile.quota()
+				storelist.append(dropboxfile.currentquota[1])
 			except:
 				print "Could not make filelist"
 		if odrivefile.tobeauthorized==True:
@@ -602,8 +638,11 @@ class FinalList:
 				odrivefile.updatefilelist()
 				folder=[]
 				odrivefile.makefinallist(self.finallist,odrivefile.filelist,folder)
+				odrivefile.onedrivequota()
+				storelist.append(odrivefile.currentquota[1])
 			except:
 				print "Could not make filelist"
+
 	def printaddress(self):
 		for a,b in self.finallist.items():
 			print(a,str(b.address))#change here
@@ -613,7 +652,7 @@ class FinalList:
 '''--------------------CODE FOR GUI STARTS HERE---------------------------'''					
 main=None
 abc=QApplication(sys.argv)
-
+File=FinalList()
 
 #This code is to get any new icons or directories created in cloud storage.
 	
@@ -677,7 +716,6 @@ def process_folderpagelist():
 								folderpagelist[dstdirname].iconlist.append(k)
 								folderpagelist[srcdirname].iconlist.remove(k)
 	
-
 class page(QWidget):
 	def __init__(self,add):
 		super(page,self).__init__()
@@ -704,12 +742,12 @@ class page(QWidget):
 		#main.update(folderpagelist,self.address)
 	def paste(self):
  		if main.movelist != []:
-				self.iconlist=main.movelist+self.iconlist
-				for a in main.movelist:
-					saved_list.update({a.ad+a.name:self.address+a.name})
+			self.iconlist=main.movelist+self.iconlist
+			for a in main.movelist:
+				saved_list.update({a.ad+a.name:self.address+a.name})
 			#main.update(folderpagelist,self.address)
-				yo(folderpagelist,self.address)#modifies the page..
-				del main.movelist[:] 
+			yo(folderpagelist,self.address)#modifies the page..
+			del main.movelist[:] 
 		pickle.dump(saved_list,open('workfile.pkl','wb'))
 
 	def delete(self,icon):
@@ -733,6 +771,7 @@ def yo(folderpagelist,address):
 	main.clear(main.mainLayout)
 	main.update(folderpagelist,address)
 	main.show()
+
 class Trash(page):
 	def __init__(self,add):
 		super(Trash,self).__init__(add)
@@ -754,6 +793,7 @@ class Trash(page):
 			folderpagelist[icon.ad].iconlist.append(icon)
 			pickle.dump(saved_list,open('workfile.pkl','wb'))			
 			yo(folderpagelist,"/Trash/")
+
 class icon(QLabel):
 	def __init__(self,page,name,imgadd):#decide whether you want to have a variable or just a common address
 		super(icon,self).__init__(page)#each icon is associated with a page
@@ -842,8 +882,7 @@ class icon(QLabel):
 	
 
 	def leftclickevent(self):
-		pass
- 
+		self.txtlabel.setText(self.name) 
 	def rightclickevent(self):
 		pass			
 	def doubleclickevent(self):
@@ -858,10 +897,9 @@ class icon(QLabel):
 		super(foldericon,self).show()
 		self.foldername.show()  
 
-		
 class foldericon(icon):
 	def __init__(self,page,name):
-		super(foldericon,self).__init__(page,name,'folder.png')
+		super(foldericon,self).__init__(page,name,'/home/trueutkarsh/Pictures/downloadfolderfinal.png')
 	def gotclickedevent(self,event):
 		super(foldericon,self).gotclickedevent(event)
 	def doubleclickevent(self):
@@ -872,6 +910,7 @@ class foldericon(icon):
 		main.update(folderpagelist,self.ad+self.name+"/")
 		main.show()
 		main.curradd=self.ad+self.name+"/" 
+
 	def contextMenuEvent(self, event):
 		#index = self.indexAt(event.pos())
 		self.menu = QMenu()
@@ -883,11 +922,13 @@ class foldericon(icon):
 		restore.triggered.connect(lambda x:trash.restoref(self))
 		self.menu.popup(QCursor.pos())
 
+
 	#define leftclickevent,rightclickevent,doubleclickevent
 
 class fileicon(icon):
 	def __init__(self,page,name):
-		super(fileicon,self).__init__(page,name,'file.png') 
+
+		super(fileicon,self).__init__(page,name,'/home/trueutkarsh/Pictures/documents.jpg') 
 	def contextMenuEvent(self, event):
 		#index = self.indexAt(event.pos())
 		self.menu = QMenu()
@@ -909,7 +950,7 @@ class fileicon(icon):
 		delete.triggered.connect(lambda x:folderpagelist[main.curradd].delete(self))
 		self.menu.popup(QCursor.pos())
 
-	#define leftclickevent,rightclickevent,doubleclickevent
+
 def makebrowser(address,folderpagelist,currpage):
 	num=address.count('/')
 	if num==1:#its a file
@@ -955,13 +996,16 @@ class Main(QMainWindow):
 			self.setCentralWidget(self.centralWidget)
 			#self.mainHLayout=QHBoxLayout()
 			#self.mainVLayout=QVBoxLayout()
+
 			self.mainLayout=QGridLayout()
 			self.container=QWidget()
 			self.scroll=QScrollArea()
 			self.layout=QGridLayout()
 			self.backicon=QIcon()
+
 			self.home=QIcon()
 			self.trash=QIcon()
+
 			self.curradd=address
 			self.movelist=[]
 			a=QSize(90,90)
@@ -991,12 +1035,15 @@ class Main(QMainWindow):
 		k=0
 		j=0
 		i=0
+
 		self.positions=[] 
+
 		while(i<len(folderpagelist[address].iconlist)):
 			j=0
 			while(j<4 and i<len(folderpagelist[address].iconlist )):
 					
 				self.positions=self.positions+[(k,j)]
+
 				j=j+1
 				i=i+1
 			k=k+1
@@ -1004,8 +1051,8 @@ class Main(QMainWindow):
 			#pos1=QMouseEvent.pos()
 			#m=QMouseEvent()
 			
-		for position,icon in zip(self.positions,folderpagelist[address].iconlist):
-				
+
+		for position,icon in zip(self.positions,folderpagelist[address].iconlist):				
 			'''
 				h=QVBoxLayout()
 				label=Newlabel()
@@ -1028,7 +1075,7 @@ class Main(QMainWindow):
 				icon.h.addWidget(icon.new_label)
 				overall.addWidget(icon.new_label)
 				icon.is_new=False	
-
+			self.layout.addItem(overall,*position)	
 			#txtlabel.move(0,100)
 			#self.h.addStretch(2)
 	   
@@ -1037,10 +1084,8 @@ class Main(QMainWindow):
 			#self.layout.addWidget(txtlabel)
 			#icon.setFixedSize(130,20)  
 
-			self.layout.addItem(overall,*position)
+			
 
-			
-			
 		self.container.setLayout(self.layout)
 		
 		self.scroll.setWidget(self.container)
@@ -1101,6 +1146,9 @@ class Main(QMainWindow):
 		paste=QAction('Paste',self)
 		self.menu.addAction(paste)
 		new = QAction('New Folder',self)
+		uploadact=QAction('Upload',self)
+		self.menu.addAction(uploadact)
+		uploadact.triggered.connect(lambda x :upload(storelist))
 		print self.ad
 		new.triggered.connect(folderpagelist[self.ad].newfolder)
 		self.menu.addAction(new)		
@@ -1108,18 +1156,405 @@ class Main(QMainWindow):
 		#cut.triggered.connect(lambda x:folderpagelist[main.curradd].cut(self))#change here
 		paste.triggered.connect(lambda x:folderpagelist[main.curradd].paste())
 		self.menu.popup(QCursor.pos())
-File=FinalList()
-show_token=False
-splash=None
-main2=None
-status=None
-w=page("/Home/")
-trash=Trash("/Trash/")
+
+'''----------------CODE FOR UPLOAD STARTS HERE------------------------'''
+def splitsizef(storelist,filesize):
+	if storelist[0]>=100*1024*1024:
+		return 90
+	else:
+		if storelist[0]==0:#maximum number of splits
+			#storelist.sort()
+			print(storelist)
+			storelist=storelist[1:]
+			print("storelist below")
+			print(storelist)			
+			b=splitsizef(storelist,filesize)
+		elif int(filesize/storelist[0])>100:
+			print(storelist)
+			storelist.sort()
+			storelist=storelist[1:]
+			print("storelist below")
+			print(storelist)
+			b=splitsizef(storelist,filesize)			
+		else:
+			b=int(storelist[0]/(1024*1024))	
+	return b		#to determine in what miniumumsize file will be chunked	
+
+
+def splitfile(fileadd,filename,splitsize):
+	os.mkdir("largefile "+filename)#make a dir
+	os.chdir(os.getcwd()+'/largefile '+filename)#move into it
+	print(os.getcwd()+'/'+filename)
+	dest=os.getcwd()+'/'+filename
+	os.rename(fileadd,dest)#move file into it
+	os.system("split -b"+str(splitsize)+"m '"+filename+"'")#split the file							
+	os.rename(dest,fileadd)#move back the original file to is source
+	dirlist=os.listdir(os.getcwd())#list of names of files
+
+	for x in dirlist:
+		os.rename(os.getcwd()+'/'+x,os.getcwd()+'/'+filename+'$'+x)#rename them so that they have individual identity #splits the file
+
+
+
+class distributedfile():
+	def __init__(self,filename):
+		self.files=[]
+		self.filename=filename
+	def update(self,x):
+		self.files.append(x)
+	def download(self,addr=None):
+		if addr==None:
+			add=main1()
+		else:
+			add=addr	
+		print("download will happen herer"+add)
+		presentdir=os.getcwd()
+		print("presently i am here"+ presentdir)
+		os.chdir(add)
+		tmpfolder=self.filename+" folder"
+		os.mkdir(tmpfolder)
+		os.chdir(add+'/'+tmpfolder)
+		i=1
+		for x in self.files:
+			x.download(add+'/'+tmpfolder)
+			print("downloadedfile file "+str(i))
+			i=i+1
+		dirlist=os.listdir(os.getcwd())
+		print(dirlist)
+		for x in dirlist:
+			t=x.rfind('$')#rfind beacuse file can be multply splitted
+			os.rename(os.getcwd()+'/'+x,os.getcwd()+'/'+x[t+1:])
+		os.system("cat x* > '"+self.filename+"'")
+		src=add+'/'+tmpfolder+'/'+self.filename
+		dest=add+'/'+self.filename
+		print(src,dest)
+		os.rename(src,dest)
+		os.chdir(add)
+		shutil.rmtree(tmpfolder)
+		os.chdir(presentdir)
+
+
+
+def upload(storelist,addfile=None,bigdfile=None):
+	if addfile==None:
+		addfile=main2()#get file address
+	filesize=int(os.path.getsize(addfile))#size of the file
+	a=addfile.rfind('/')
+	filename=addfile[a+1:]#filename
+	print(filename)
+	totalfreespace=sum(storelist)#count the total space
+	print(totalfreespace)
+	storelist.sort()
+	#ssplitsize=2
+	iscorrect=True
+	isfilesplitted=False
+	try :
+		if filesize>totalfreespace:
+			print("File size too large.Insufficient space")
+			print("total spcae="+str(totalfreespace)+"filesize= "+str(filesize))
+			iscorrect=False
+		else:
+			if filesize<=90*1024*1024 and filesize<odrivefile.currentquota[1]:
+				dfile=odrivefile(addfile)
+				dfile.upload()
+				a=storelist.index(odrivefile.currentquota[1])
+				odrivefile.currentquota[1]-=filesize
+				storelist[a]=odrivefile.currentquota[1]
+				#storelist[a]=odrivefile.currentquota[1]
+				#code for making icon out of it and updating iconlist folderpagelist and
+			else:
+				if gdrivefile.currentquota[1]==max(storelist):
+					if filesize<=gdrivefile.currentquota[1]:
+						dfile=gdrivefile(addfile)
+						dfile.upload()
+						a=storelist.index(gdrivefile.currentquota[1])
+						gdrivefile.currentquota[1]-=filesize
+						storelist[a]=gdrivefile.currentquota[1]
+						#a=storelist.find(gdrivefile.currentquota[1])
+						#gdrivefile.currentquota[1]-=filesize
+						#storelist[a]=gdrivefile.currentquota[1]
+					else:
+						print("upload of gdrive one")
+						#split the file,distribute the data #1 2 4
+						#storelist=[odrivefile.currentquota[1],gdrivefile.currentquota[1],dropboxfile.currentquota[1]]
+						isfilesplitted=True
+						storelist.sort()
+						#splitfile(addfile,filename,splitsize(storelist,filesize))
+						ssplitsize=splitsizef(storelist,filesize)#find the chunks into which file will uploaded
+						print("splitsize determined="+str(ssplitsize))
+						splitfile(addfile,filename,ssplitsize)#split the file
+						print("file spltted")
+						dirlist=os.listdir(os.getcwd())
+						print(dirlist)
+						dfile=distributedfile(filename)
+						for y in dirlist:
+							padd=os.getcwd()+'/'+y#partial adress
+							print("padd adress determined'")
+							print(padd)
+							psize=int(os.path.getsize(padd))#partial size
+							if psize<=gdrivefile.currentquota[1]:
+								tmpgdrivefile=gdrivefile(padd)
+								tmpgdrivefile.upload()
+								print("some part uploaded")
+								i=storelist.index(gdrivefile.currentquota[1])
+								gdrivefile.currentquota[1]-=psize
+								storelist[i]=gdrivefile.currentquota[1]	
+								#update the store list
+								dfile.update(tmpgdrivefile)
+								print("dfile updated")
+							elif psize<=odrivefile.currentquota[1]:
+								tmpodrivefile=odrivefile(padd)
+								tmpodrivefile.upload()
+								a=storelist.index(odrivefile.currentquota[1])
+								odrivefile.currentquota[1]-=psize
+								storelist[a]=odrivefile.currentquota[1]
+								dfile.update(tmpodrivefile)
+
+							elif psize<=dropboxfile.currentquota[1]:
+								tmpdropboxfile=dropboxfile(padd)
+								tmpdropboxfile.upload()
+								a=storelist.index(dropboxfile.currentquota[1])
+								dropboxfile.currentquota[1]-=psize
+								storelist[a]=dropboxfile.currentquota[1]	
+								dfile.update(tmpdropboxfile)
+
+							else:
+								if dirlist!=[]:#file size coud'nt fit inside
+									upload(storelist,padd,dfile)
+								else:
+									print("Unusual error please close the program and contact developers.")	
+									iscorrect=False
+							print("totalfreespace free space now is="+str(sum(storelist)))								
+				elif dropboxfile.currentquota[1]==max(storelist):
+					if filesize<=dropboxfile.currentquota[1]:
+						dfile=dropboxfile(addfile)
+						dfile.upload()
+						a=storelist.index(dropboxfile.currentquota[1])
+						dropboxfile.currentquota[1]-=filesize
+						storelist[a]=dropboxfile.currentquota[1]					
+					else:
+						#split the file,distribute the data #1 2 4
+						#storelist=[odrivefile.currentquota[1],gdrivefile.currentquota[1],dropboxfile.currentquota[1]]
+						print("upload of dropdrive one")
+						isfilesplitted=True
+						storelist.sort()
+						ssplitsize=splitsizef(storelist,filesize)
+						print("splitsize determined="+str(ssplitsize))
+						splitfile(addfile,filename,ssplitsize)
+						print("filesplitted")
+						dirlist=os.listdir(os.getcwd())
+						print(dirlist)
+						##--------MAKE SOMTHING TO DECIDE THE PRIORITY LIST---------------##
+						dfile=distributedfile(filename)
+						for m in dirlist:
+							padd=os.getcwd()+'/'+m#partial adress
+							psize=int(os.path.getsize(padd))#partial size
+							if psize<=gdrivefile.currentquota[1]:
+								tmpgdrivefile=gdrivefile(padd)
+								tmpgdrivefile.upload()
+								print("uploaded some gdrive parrt")
+								a=storelist.index(gdrivefile.currentquota[1])
+								gdrivefile.currentquota[1]-=psize
+								storelist[a]=gdrivefile.currentquota[1]
+								dfile.update(tmpgdrivefile)
+							elif psize<=odrivefile.currentquota[1]:
+								tmpodrivefile=odrivefile(padd)
+								tmpodrivefile.upload()
+								print("uploaded some odrive part")
+								a=storelist.index(odrivefile.currentquota[1])
+								odrivefile.currentquota[1]-=psize
+								storelist[a]=odrivefile.currentquota[1]
+								dfile.update(tmpodrivefile)
+							elif psize<=dropboxfile.currentquota[1]:
+								tmpdropboxfile=dropboxfile(padd)
+								tmpdropboxfile.upload()
+								a=storelist.index(dropboxfile.currentquota[1])
+								dropboxfile.currentquota[1]-=psize
+								storelist[a]=dropboxfile.currentquota[1]
+								dfile.update(tmpdropboxfile)
+							else:
+								if dirlist!=[]:#file size coud'nt fit inside
+									upload(storelist,padd,dfile)
+								else:
+									print("Unusual error please close the program and contact developers.")	
+									iscorrect=False	
+							print("totalfreespace free space now is="+str(sum(storelist)))											
+				elif odrivefile.currentquota[1]==max(storelist):
+					if filesize<=odrivefile.currentquota[1]:
+						dfile=odrivefile(addfile)
+						dfile.upload()
+						odrivefile.currentquota[1]-=filesize
+					else:
+						print("upload of onedrive one")
+						#split the file,distribute the data #1 2 4
+						#storelist=[odrivefile.currentquota[1],gdrivefile.currentquota[1],dropboxfile.currentquota[1]]
+						isfilesplitted=True
+						storelist.sort()
+						ssplitsize=splitsizef(storelist,filesize)
+						print("splitsize determined="+str(ssplitsize))
+						splitfile(addfile,filename,ssplitsize)
+						dirlist=os.listdir(os.getcwd())
+						##--------MAKE SOMTHING TO DECIDE THE PRIORITY LIST---------------##
+						dfile=distributedfile(filename)
+						for z in dirlist:
+							padd=os.getcwd()+'/'+z#partial adress
+							psize=int(os.path.getsize(padd))#partial size
+							if psize<=gdrivefile.currentquota[1]:
+								tmpgdrivefile=gdrivefile(padd)
+								tmpgdrivefile.upload()
+								a=storelist.index(gdrivefile.currentquota[1])
+								gdrivefile.currentquota[1]-=psize
+								storelist[a]=gdrivefile.currentquota[1]
+								dfile.update(tmpgdrivefile)
+							elif psize<=odrivefile.currentquota[1]:
+								tmpodrivefile=odrivefile(padd)
+								tmpodrivefile.upload()
+								a=storelist.index(odrivefile.currentquota[1])
+								odrivefile.currentquota[1]-=psize
+								storelist[a]=odrivefile.currentquota[1]
+								dfile.update(tmpodrivefile)
+
+							elif psize<=dropboxfile.currentquota[1]:
+								tmpdropboxfile=dropboxfile(padd)
+								tmpdropboxfile.upload()
+								a=storelist.index(dropboxfile.currentquota[1])
+								dropboxfile.currentquota[1]-=psize
+								storelist[a]=dropboxfile.currentquota[1]
+								dfile.update(tmpdropboxfile)								
+							else:
+								if dirlist!=[]:#file size coud'nt fit inside
+									upload(storelist,padd,dfile)
+								else:
+									print("Unusual error please close the program and contact developers.")	
+									iscorrect=False	
+								print("totalfreespace free space now is="+str(sum(storelist)))		
+	except Exception, e:
+		print(str(Exception))
+		print(str(e))
+		print("Sorry the action was unsuccessful.File size could'nt be uploaded.Please free your drive or check your connection")
+		iscorrect=False																	
+		
+	if iscorrect:
+		if isfilesplitted:	
+			cfold=os.getcwd()		
+			b=cfold.rfind('/')		
+			ldir=cfold[:b]
+			print(ldir)
+			os.chdir(ldir)	
+			shutil.rmtree("largefile "+filename)#DO SOMETHING ABOUT IT
+			print(os.listdir(os.getcwd()))
+		if bigdfile==None:#it is a complete file not a part
+			File.finallist.update({filename:dfile})
+			tempfileicon=fileicon(folderpagelist[main.curradd],filename)
+			main.movelist.append(tempfileicon)
+			folderpagelist[main.curradd].paste()	
+			
+		else:#it is a part of some file
+			bigdfile.update(dfile)		
+	else:
+		if isfilesplitted:
+			cfold=os.getcwd()		
+			b=cfold.rfind('/')		
+			ldir=cfold[:b]
+			print(ldir)
+			os.chdir(ldir)	
+			shutil.rmtree("largefile "+filename)#DO SOMETHING ABOUT IT		
+			#return None	
+	return					
+
+
+
+		#join the file	
+'''						
+def trydistributedupload():
+	addfile=main2()
+	print("presently i am here"+os.getcwd())
+	filesize=int(os.path.getsize(addfile))
+	a=addfile.rfind('/')
+	filename=addfile[a+1:]
+	print(filename)
+	totalfreespace=sum(storelist)	
+	print("totalfreespace free space="+str(totalfreespace))
+	storelist.sort()
+	#ssplitsize=splitsize(storelist,filesize)
+	ssplitsize=2
+	splitfile(addfile,filename,ssplitsize)
+	dirlist=os.listdir(os.getcwd())
+	print(dirlist)
+	##--------MAKE SOMTHING TO DECIDE THE PRIORITY LIST---------------##
+	iscorrect=True
+	dfile=distributedfile(filename)
+	i=0
+	for x in dirlist:
+		padd=os.getcwd()+'/'+x#partial adress
+		psize=int(os.path.getsize(padd))#partial size
+		if i<3:
+			tmpgdrivefile=gdrivefile(padd)
+			tmpgdrivefile.upload()
+			print("uploaded file "+str(i)+" "+str(padd)+"google drive")
+			gdrivefile.currentquota[1]-=psize
+			print("quota updated")
+			dfile.update(tmpgdrivefile)
+			print("d file updated")
+			i=i+1
+		elif i<len(dirlist):
+			tmpodrivefile=odrivefile(padd)
+			tmpodrivefile.upload()
+			print("uploaded file"+str(i)+" "+padd+"onedrive")
+			odrivefile.currentquota[1]-=psize
+			print("quota updated")
+			dfile.update(tmpodrivefile)
+			print("d file updated")
+
+		elif psize<=dropboxfile.currentquota[1]:
+				tmpdropboxfile=dropboxfile(padd)
+				tmpdropboxfile.upload()
+				dropboxfile.currentquota-=psize
+				distributedfile.update(tmpdropboxfile)
+
+			i=i+1
+		else:
+			print("Sorry the action was unsuccessful.File size could'nt be uploaded.Please free your drive.")
+			iscorrect=False
+			return None
+	cfold=os.getcwd()		
+	b=cfold.rfind('/')		
+	ldir=cfold[:b]
+	os.chdir(ldir)	
+	shutil.rmtree("largefile")#DO SOMETHING ABOUT IT
+	print(os.listdir(os.getcwd()))		
+	return dfile	
+'''#-----------------------------------CODE FOR UPLOAD ENDS HERE---------------------------------------------#
 #imgadd='/home/trueutkarsh/Pictures/downloadfolderfinal.png'
-
-
+#File.printaddress()#-TO PRINT FINAL LIST  UNCOMMENT THIS LINE
+'''-------CODE GOR TESTING UPLOAD
+gdrivefile.currentquota=[1,5*1024*1024]
+odrivefile.currentquota=[2,6*1024*1024]
+dropboxfile.currentquota=[3,6*1024*1024]
+'''
+#storelist=[odrivefile.currentquota[1],gdrivefile.currentquota[1],dropboxfile.currentquota[1]]#and other drives can be added further dropboxfile.currentquota[1]-removed dropbox
+'''
 folderpagelist={}
 folderpagelist.update({"/Home/":w})
+
+for x,y in File.finallist.items():
+	try:
+		makebrowser(y.address,folderpagelist,w)
+	except:
+		print("error in this address"+ y.address)
+'''		
+
+show_token=False
+splash=None
+mmain2=None
+status=None
+w=page("/Home/")
+folderpagelist={}
+folderpagelist.update({"/Home/":w})
+trash=Trash("/Trash/")
+storelist=[]#this will contain all the free individual storages
+#imgadd='/home/trueutkarsh/Pictures/downloadfolderfinal.png'
+
 
 
 #stray list is to ensure that workfile.pkl is present to load.
@@ -1130,7 +1565,7 @@ try:
 except:
 	pickle.dump(stray_list,open('workfile.pkl','wb'))
 	saved_list=pickle.load(open('workfile.pkl','rb'))	
-
+'''----------------------CODE FOR WELCOME SCREEN--------------------------'''
 class Welcome(QMainWindow):
 	def __init__(self,parent=None):
 		super(Welcome, self).__init__(parent)
@@ -1285,12 +1720,15 @@ class Welcome(QMainWindow):
 			self.oul.setText('')
 			self.opl.setText('')
 		'''				  
+
+
+
 class start_screen(QLabel):
 	def __init__(self,parent=None):
 		pic=QPixmap("syncitall.png")
 		self.setPixmap(pic)
 		'''
-
+'''-----------------------CODE FOR WELCOME SCREEN ENDS HERE------------------------------'''
 
 
 #class fileicon()
@@ -1298,23 +1736,13 @@ class start_screen(QLabel):
 #a=odrivefile(add)
 #a.upload()
 # Simulate something that takes time
-main2=Welcome()
+mmain2=Welcome()
 #splash.finish(main2)
 main=Main(folderpagelist,"/Home/")
-main2.show()
+mmain2.show()
 
 status=abc.exec_()
 #File.printaddress()#-TO PRINT FINAL LIST  UNCOMMENT THIS LINE
-
-
-
-
-
-
-
-
-
-
 
 
 '''---------------CODE FOR GUI ENDS HERE--------------------------------------'''			
