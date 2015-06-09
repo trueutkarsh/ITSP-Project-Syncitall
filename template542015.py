@@ -539,19 +539,11 @@ class dropboxfile(file):
 	
 	def download(self,add=None):
 		if dropboxfile.authorized==False :
-			return None
-		try:
-			if '/' in self.address:
-				i=self.address.rfind('/')
-				filename=self.address[i+1:]
-			else:
-				filename=self.address			
-			f, metadata = dropboxfile.client.get_file_and_metadata(filename)
-		except TypeError:
-			file.found=0
+			return None		
+		f, metadata = dropboxfile.client.get_file_and_metadata(self.address)
 		if add==None:#change here	
 			add=main1()			
-		out = open(add+"/"+ntpath.basename(filename), 'wb')
+		out = open(add+"/"+ntpath.basename(self.address), 'wb')
 		out.write(f.read())
 		out.close()
 	@staticmethod
@@ -585,6 +577,7 @@ class dropboxfile(file):
 
 	@staticmethod
 	def quota():
+		dropboxfile.currentquota=None
 		if dropboxfile.authorized==None:
 			print "Dropbox not authorized"
 			return None
@@ -592,7 +585,7 @@ class dropboxfile(file):
 			print ("shared : " +str(dropboxfile.account['quota_info']['shared']))
 			print ("quota  : " +str(dropboxfile.account['quota_info']['quota']))
 			print ("normal : " +str(dropboxfile.account['quota_info']['normal']))	
-		currentquota=(int(dropboxfile.account['quota_info']['normal']),int(dropboxfile.account['quota_info']['normal'])-int(dropboxfile.account['quota_info']['quota']))
+		dropboxfile.currentquota=(int(dropboxfile.account['quota_info']['normal']),int(dropboxfile.account['quota_info']['quota'])-int(dropboxfile.account['quota_info']['normal']))
 	@staticmethod
 	def printlist(add):
 		if dropboxfile.authorized==False:
@@ -615,13 +608,13 @@ class FinalList:
 		self.finallist={}
 	def update(self):
 		if gdrivefile.tobeauthorized==True:
-			if True:
+			try:
 				gdrivefile.authorize()
 				gdrivefile.updatefilelist()
 				gdrivefile.makefinallist(self.finallist,gdrivefile.filelist)
 				gdrivefile.getquota()
 				storelist.append(gdrivefile.currentquota[1])
-			else:
+			except:
 				print "Could not make filelist"
 		if dropboxfile.tobeauthorized==True:
 			try:
@@ -700,6 +693,7 @@ def process_folderpagelist():
 					for k in folderpagelist[srcdirname].iconlist:
 						if k.name==srcname:
 							folderpagelist[srcdirname].iconlist.remove(k)
+							k.isdeleted=True
 							trash.iconlist.append(k)
 							trash.page_list.append(folderpagelist[a+"/"])
 							del folderpagelist[a+"/"]
@@ -757,6 +751,7 @@ class page(QWidget):
 		pickle.dump(saved_list,open('workfile.pkl','wb'))
 		yo(folderpagelist,self.windowtitle)
 	def deletef(self,icon):
+		icon.isdeleted=True
 		trash.iconlist.append(icon)
 		self.iconlist.remove(icon)
 		for k in folderpagelist.keys():
@@ -882,7 +877,7 @@ class icon(QLabel):
 	
 
 	def leftclickevent(self):
-		self.txtlabel.setText(self.name) 
+		pass 
 	def rightclickevent(self):
 		pass			
 	def doubleclickevent(self):
@@ -899,17 +894,20 @@ class icon(QLabel):
 
 class foldericon(icon):
 	def __init__(self,page,name):
-		super(foldericon,self).__init__(page,name,'/home/trueutkarsh/Pictures/downloadfolderfinal.png')
+		super(foldericon,self).__init__(page,name,'folder.png')
+		self.isdeleted=False
 	def gotclickedevent(self,event):
 		super(foldericon,self).gotclickedevent(event)
 	def doubleclickevent(self):
-		
-		main.clear(main.mainLayout)
-		#main.mainLayout.removeWidget(main.backbutton)
-		#main.mainLayout.removeWidget(main.scroll)
-		main.update(folderpagelist,self.ad+self.name+"/")
-		main.show()
-		main.curradd=self.ad+self.name+"/" 
+		if self.isdeleted==False:
+			main.clear(main.mainLayout)
+			#main.mainLayout.removeWidget(main.backbutton)
+			#main.mainLayout.removeWidget(main.scroll)
+			main.update(folderpagelist,self.ad+self.name+"/")
+			main.show()
+			main.curradd=self.ad+self.name+"/" 
+		else:
+			print "The folder cannot be accessed"
 
 	def contextMenuEvent(self, event):
 		#index = self.indexAt(event.pos())
@@ -928,7 +926,7 @@ class foldericon(icon):
 class fileicon(icon):
 	def __init__(self,page,name):
 
-		super(fileicon,self).__init__(page,name,'/home/trueutkarsh/Pictures/documents.jpg') 
+		super(fileicon,self).__init__(page,name,'file5.png') 
 	def contextMenuEvent(self, event):
 		#index = self.indexAt(event.pos())
 		self.menu = QMenu()
