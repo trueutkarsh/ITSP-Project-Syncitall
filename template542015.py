@@ -45,7 +45,7 @@ def main2():
 	addb=QString()
 	addb=str(QFileDialog.getOpenFileName())
 	return addb
-
+#this contains all the info of user
 class account:
 	gname=''
 	gpass=''
@@ -61,7 +61,6 @@ class file:#bas class file
 	#distributed
 	def __init__(self,location):
 		self.address=location#address of file on pc
-		
 	def upload(self):
 		pass
 	@staticmethod
@@ -75,6 +74,12 @@ class gdrivefile(file):
 	currentquota=None
 	supportslargeupload=True
 	maxupldsize=None
+	
+	def __init__(self,location):
+		file.__init__(self,location)
+		self.fileid=None
+		self.title=None
+
 
 	def upload(self):
 		if gdrivefile.authorized==False :
@@ -234,6 +239,15 @@ class gdrivefile(file):
 					print("An error occured in downloading")
 			else:
 				print("No such file exists ")
+	def delete(self):
+		try:
+			gdrivefile.drive_service.files().delete(fileId=self.fileid).execute()
+		except errors.HttpError,error:
+			print "an Error eoccured" + str(error)
+
+
+
+			
 
 	@staticmethod
 	def getquota():
@@ -248,7 +262,9 @@ class gdrivefile(file):
 		for name in filelist:
 			if '$x' not in name['title']:
 				tmpgdrivefile=gdrivefile(name['title'])
-				finallist.update({str(name['title']):tmpgdrivefile})	
+				tmpgdrivefile.fileid=name['id']
+				tmpgdrivefile.title=name['title']
+				finallist.update({str(name['title']):tmpgdrivefile})#make change here to get address of file	
 						
 class odrivefile(file):
 	tobeauthorized=False
@@ -307,11 +323,11 @@ class odrivefile(file):
 			driver=webdriver.Firefox()# change herer
 			authurl= 'https://login.live.com/oauth20_authorize.srf?scope='+oscope+'&redirect_uri=https%3A%2F%2Flogin.live.com%2Foauth20_desktop.srf&response_type=code&client_id=000000004015642C'
 			driver.get(authurl)
-			WebDriverWait(driver, 120).until(EC.element_to_be_clickable((By.ID, "i0116"))).send_keys(account.oname)
-			WebDriverWait(driver, 120).until(EC.element_to_be_clickable((By.ID, "i0118"))).send_keys(account.opass)
-			WebDriverWait(driver, 120).until(EC.element_to_be_clickable((By.ID, "idSIButton9"))).click()
+			WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.ID, "i0116"))).send_keys(account.oname)
+			WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.ID, "i0118"))).send_keys(account.opass)
+			WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.ID, "idSIButton9"))).click()
 
-			WebDriverWait(driver, 120).until(EC.element_to_be_clickable((By.ID, "idBtn_Accept"))).click()
+			WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.ID, "idBtn_Accept"))).click()
 			endurl=str(driver.current_url)
 			driver.quit()
 			os.system("onedrive-cli auth "+ endurl)
@@ -427,6 +443,11 @@ class odrivefile(file):
 					print(x)
 			odrivefile.download()
 		'''	
+	def delete(self):
+		try:
+			os.system("onedrive-cli rm '"+self.address+"'")
+		except Exception,e:
+			print "error deleting file"		
 	@staticmethod
 	def printfilelist():
 		if odrivefile.listupdated==False:
@@ -554,6 +575,13 @@ class dropboxfile(file):
 		out = open(add+"/"+ntpath.basename(filename), 'wb')
 		out.write(f.read())
 		out.close()
+	def delete(self):
+		try:
+			dropboxfile.client.file_delete(self.address)
+		except:
+			print "error occured deleting dropboxfile"	
+		pass
+			
 	@staticmethod
 	def makefilelist(add,finallist):
 		if dropboxfile.authorized==False:
@@ -780,7 +808,7 @@ class Trash(page):
 		if icon.ad in folderpagelist.keys():
 			folderpagelist[icon.ad].iconlist.append(icon)
 			trash.iconlist.remove(icon)
-			del saved_list[icon.ad+icon.name]
+			del saved_list[icon.ad+icon.name]#think about it
 			pickle.dump(saved_list,open('workfile.pkl','wb'))			
 			yo(folderpagelist,"/Trash/")
 	def restoref(self,icon):
@@ -789,7 +817,7 @@ class Trash(page):
 				if b.windowtitle==icon.ad+icon.name+"/":
 					folderpagelist.update({icon.ad+icon.name+"/":b})
 			self.iconlist.remove(icon)
-			del saved_list[icon.ad+icon.name]
+			del saved_list[icon.ad+icon.name]#think about it
 			folderpagelist[icon.ad].iconlist.append(icon)
 			pickle.dump(saved_list,open('workfile.pkl','wb'))			
 			yo(folderpagelist,"/Trash/")
@@ -803,7 +831,7 @@ class icon(QLabel):
 		self.setPixmap(self.icon2.pixmap(128,QIcon.Normal,QIcon.On))#pix map has been assighned its image
 		self.foldername=QLabel(page)#label for the name of folder
 		self.address=QString(name)#just for the sake of naming
-		self.page=page
+		#self.page=page
 		self.name=name
 		self.foldername.setText(name)
 		self.foldername.move(self.x()+self.width(),self.y()+self.pic.height()/2-10)#move text to appropriate height
@@ -937,10 +965,12 @@ class fileicon(icon):
 		delete=QAction('Delete',self)
 		cut=QAction('Cut',self)
 		paste=QAction('Paste',self)
+		permdel=QAction('Delete Perma',self)
 		self.menu.addAction(paste)
 		self.menu.addAction(Download)
 		self.menu.addAction(cut)
 		self.menu.addAction(delete)
+		self.menu.addAction(permdel)
 		restore=QAction('Restore',self)
 		self.menu.addAction(restore)
 		restore.triggered.connect(lambda x:trash.restore(self))
@@ -948,7 +978,22 @@ class fileicon(icon):
 		cut.triggered.connect(lambda x:folderpagelist[main.curradd].cut(self))#change here
 		paste.triggered.connect(lambda x:main.paste())
 		delete.triggered.connect(lambda x:folderpagelist[main.curradd].delete(self))
+		permdel.triggered.connect(lambda x:self.delete())
 		self.menu.popup(QCursor.pos())
+	def delete(self):
+		#delete the file
+		File.finallist[self.name].delete()
+		#delete the file from finallist
+		print "deleted file from drive"
+		del File.finallist[self.name]
+		print "removed from finallist"
+		#remove from folderpagelist
+		del saved_list[self.ad+self.name]
+		print "deleted from saved_list"
+		folderpagelist[main.curradd].iconlist.remove(self)
+		print "removed icon"
+		yo(folderpagelist,main.curradd)
+
 
 
 def makebrowser(address,folderpagelist,currpage):
@@ -1524,7 +1569,8 @@ def trydistributedupload():
 	shutil.rmtree("largefile")#DO SOMETHING ABOUT IT
 	print(os.listdir(os.getcwd()))		
 	return dfile	
-'''#-----------------------------------CODE FOR UPLOAD ENDS HERE---------------------------------------------#
+'''
+'''-----------------------------------CODE FOR UPLOAD ENDS HERE---------------------------------------------'''
 #imgadd='/home/trueutkarsh/Pictures/downloadfolderfinal.png'
 #File.printaddress()#-TO PRINT FINAL LIST  UNCOMMENT THIS LINE
 '''-------CODE GOR TESTING UPLOAD
@@ -1748,148 +1794,9 @@ status=abc.exec_()
 '''---------------CODE FOR GUI ENDS HERE--------------------------------------'''			
   
 
-#testing the new update
-
-#google drive testing takes place here
-
-'''
-while True:
-	command=raw_input('which propoerty do you want to test for google drive :').strip()
-	if command=="download":
-		gdrivefile.download()
-	elif command=="upload":
-		add=raw_input("enter address of a file").strip()
-		gdrivefile.upload(add)
-	elif command =="updatefilelist":
-		gdrivefile.updatefilelist()
-		for name in gdrivefile.filelist:
-			print name['title']
-	elif command=="getquota":
-		gdrivefile.getquota()		
-		a=gdrivefile.currentquota
-		for data in a:
-			print(data)+ ' bytes'
-	elif command=="exit" :
-		break
-	else :
-		pass	
-
-'''
-
-#odrivefile.authorize()
-#os.system("onedrive-cli put Game of Thrones S05E05 1080p HDTV [G2G.fm].srt")
-
-		
-#one drive testing 
-#odrivefile.authorize()
-
-#odrivefile.getfilelist()
-#odrivefile.download()
-#odrivefile.updatefilelist()
-#odrivefile.download()
-#odrivefile.oprintquota()
-'''
-gdrivefile.authorize()
-gdrivefile.updatefilelist()
-for x in gdrivefile.filelist:
-	add=x['originalFilename']
-	print add
-'''
-'''----FUNCTION TO CHECK DOWNLOAD FROM COMMON DATA BASE.JUST WRITE FILE NAME OF FILE 2 DOWNLOAD FROM ANY OF THE THREE DRIVES'''
-'''
-a=QApplication(sys.argv)
-File=FinalList()
-File.update()
-#File.printaddress()#-TO PRINT FINAL LIST  UNCOMMENT THIS LINE
-
-w=page("/Home/")
-folderpagelist={}
-folderpagelist.update({"/Home/":w})
-for x,y in File.finallist.items():
-	try:
-		makebrowser(y.address,folderpagelist,w)
-	except:
-		print("error in this address"+ y.address)
-for x,y in folderpagelist.items():
-	y.arrange() 
-#folderpagelist["/Home/"].show()				
-#folderpagelist["/Home/"].show()
-mainwindow=QMainWindow()
-scroll=QScrollArea()
-scroll.setWidget(folderpagelist["/Home/"])
-scroll.setWidgetResizable(True)
-scroll.setFixedWidth(800)
-layout=QVBoxLayout(folderpagelist["/Home/"])
-layout.addWidget(scroll)
-
-mainwindow.setCentralWidget(folderpagelist["/Home/"])
-mainwindow.show()
-sys.exit(a.exec_())
-'''
-'''
-command='download'
-while  command=='download':
-	File.download()
-	command=raw_input("Enter command").strip()
-'''
-'''----PRESENTLY UPLOAD IS DRIVE SPECIFIC MAKE AN INSTANCE OF RESPECTIVE DRIVE CLASS AND INITIALIZE IT WITH ITS FILE ADDRESS ON PC'''	
 
 
 
-'''
-odrivefile.updatefilelist()
-odrivefile.printfilelist()
-odrivefile.onedrivequota()
-print(odrivefile.currentquota)
-
-f1=odrivefile(raw_input('Enter address of file'))
-f1.upload()
-
-
-#odrivefile.printfilelist()
-#odrivefile.upload()
-
-
-
-
-os.system("onedrive-cli ls 'Documents/ITSP/'")
-<<<<<<< HEAD
-
-=======
-'''
-'''
-gdrivefile.authorize()
-dropboxfile.authorize()
-
-odrivefile.authorize()
->>>>>>> origin/master
-odrivefile.updatefilelist()
-gdrivefile.updatefilelist()
-finallist={}
-folder=[]
-#Code to print file list of dropbox. 
-#dropboxfile.printlist("/")
-odrivefile.makefinallist(finallist,odrivefile.filelist,folder)
-gdrivefile.makefinallist(finallist,gdrivefile.filelist)
-dropboxfile.makefilelist(add,finallist)
-for a,b in finallist.items():
-	print(a,b.address)
-filename=''	
-while filename!='exit':	
-	filename=raw_input("Enter filename(exit to exit)").strip()
-	finallist[filename].download()	
-
-gdrivefile.updatefilelist()
-for x in gdrivefile.filelist:
-	print x['title']
-
-<<<<<<< HEAD
-#print(templink)
-
-for line in templink:
-	print(line+'we did it')
-'''	
-	
 '''-------------------------WRITE BUGS/'IMPROVEMENT TO BE MADE' HERE-------------------------------------------
 1.File name anywhere should not contain "'"	
 2.If any change has been made to such as download or upload of a file,filelist should be update there for that file.not complete
