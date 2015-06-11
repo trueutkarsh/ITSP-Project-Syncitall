@@ -1583,13 +1583,11 @@ def upload(storelist,addfile=None,bigdfile=None):
 			print(os.listdir(os.getcwd()))
 		if bigdfile==None:#it is a complete file not a part
 			File.finallist.update({filename:dfile})#update finallist
-			tempfileicon=fileicon(folderpagelist[main.curradd],filename)#ake icon
-			folderpagelist[main.curradd].iconlist.append(tempfileicon)#update it in page iconlist
+			tempfileicon=fileicon(folderpagelist['/Home/'],filename)#make icon in home folder
+			main.movelist.append(tempfileicon)#push it to movelist
+			folderpagelist[main.curradd].paste()#update it in page iconlist
 			yo(folderpagelist,main.curradd)#update page
-			saved_list.update({main.curradd+filename:None})#update savedlist
-			pickle.dump(saved_list,open('workfile.pkl','wb'))#save it				
-
-			
+							
 		else:#it is a part of some file
 			bigdfile.update(dfile)		
 	else:
