@@ -46,6 +46,7 @@ def main2():
 	addb=QString()
 	addb=str(QFileDialog.getOpenFileName())
 	return addb
+
 #this contains all the info of user
 def getfilename(address):
 	a=address.count('/')
@@ -99,6 +100,18 @@ def makedistributedfile(title,index,branchfile,gfile):
 			makedistributedfile(title,nextindex,tmpdfile,gfile)
 		return	
 		 
+def updatestorelist():
+	del storelist[:]
+	if gdrivefile.tobeauthorized:
+		gdrivefile.getquota()
+		storelist.append(gdrivefile.currentquota[1])
+	if odrivefile.tobeauthorized:	
+		odrivefile.onedrivequota()
+		storelist.append(odrivefile.currentquota[1])
+	if dropboxfile.tobeauthorized:
+		dropboxfile.quota()
+		storelist.append(dropboxfile.currentquota[1])		
+	totalfreespace=sum(storelist)			
 
 class account:
 	gname=''
@@ -115,7 +128,9 @@ class file:#base class file
 	#distributed
 	def __init__(self,location):
 		self.address=location#address of file on pc
+
 		self.filename=getfilename(location)#filename
+
 	def upload(self):
 		pass
 	@staticmethod
@@ -129,10 +144,12 @@ class gdrivefile(file):
 	currentquota=None
 	supportslargeupload=True
 	maxupldsize=None
+
 	
 	def __init__(self,location):
 		file.__init__(self,location)
 		self.fileid=None
+
 
 
 	def upload(self):
@@ -289,6 +306,7 @@ class gdrivefile(file):
 					print("An error occured in downloading")
 			else:
 				print("No such file exists ")
+
 	def delete(self):
 		try:
 			if self.fileid==None:
@@ -303,13 +321,18 @@ class gdrivefile(file):
 
 			
 
+
 	@staticmethod
 	def getquota():
 		if gdrivefile.authorized==False :
 			gdrivefile.authorize()
 			gdrivefile.authorized=True
-		about=gdrivefile.drive_service.about().get().execute()	
-		gdrivefile.currentquota=[int(about['quotaBytesTotal']),int(about['quotaBytesTotal'])-int(about['quotaBytesUsed'])]
+		try:	
+			about=gdrivefile.drive_service.about().get().execute()	
+			gdrivefile.currentquota=[int(about['quotaBytesTotal']),int(about['quotaBytesTotal'])-int(about['quotaBytesUsed'])]
+		except:
+			print("gdrive quota not updated")
+			gdrivefile.currentquota=[0,0]	
 	@staticmethod
 	def makefinallist(finallist,filelist):
 
@@ -320,7 +343,7 @@ class gdrivefile(file):
 			#flist=name['parent']
 			#fname="/"	
 			#print("folder name is" + fname)
-			print(name['parents'])			
+			#print(name['parents'])			
 			if '$x' not in name['title']:#normal file
 				finallist.update({str(name['title']):tmpgdrivefile})#make change here to get address of file
 			else:#splitted file
@@ -330,7 +353,7 @@ class gdrivefile(file):
 					tmpdfile=distributedfile(filename)
 					finallist.update({filename:tmpdfile})
 				makedistributedfile(name['title'],a,tmpdfile,tmpgdrivefile)		
-						
+					
 class odrivefile(file):
 	tobeauthorized=False
 	filelist=None
@@ -389,11 +412,11 @@ class odrivefile(file):
 			driver=webdriver.Firefox()# change herer
 			authurl= 'https://login.live.com/oauth20_authorize.srf?scope='+oscope+'&redirect_uri=https%3A%2F%2Flogin.live.com%2Foauth20_desktop.srf&response_type=code&client_id=000000004015642C'
 			driver.get(authurl)
-			WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.ID, "i0116"))).send_keys(account.oname)
-			WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.ID, "i0118"))).send_keys(account.opass)
-			WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.ID, "idSIButton9"))).click()
+			WebDriverWait(driver, 120).until(EC.element_to_be_clickable((By.ID, "i0116"))).send_keys(account.oname)
+			WebDriverWait(driver, 120).until(EC.element_to_be_clickable((By.ID, "i0118"))).send_keys(account.opass)
+			WebDriverWait(driver, 120).until(EC.element_to_be_clickable((By.ID, "idSIButton9"))).click()
 
-			WebDriverWait(driver, 60).until(EC.element_to_be_clickable((By.ID, "idBtn_Accept"))).click()
+			WebDriverWait(driver, 120).until(EC.element_to_be_clickable((By.ID, "idBtn_Accept"))).click()
 			endurl=str(driver.current_url)
 			driver.quit()
 			os.system("onedrive-cli auth "+ endurl)
@@ -424,17 +447,21 @@ class odrivefile(file):
 		if odrivefile.authorized ==False:
 			odrivefile.authorize()
 			odrivefile.authorized=True
-		x=commands.getstatusoutput('onedrive-cli quota')[1].strip().split('\n')
-		a=x[0].find(':')
-		free=x[0][a+2:]
-		b=x[1].find(':')
-		total=x[1][b+2:]
-		if free[-1]=='G':
-			free=int(float(free[:-1]))*1024*1024*1024
-		elif free[-1]=='M':
-			free=int(float(free[:-1]))*1024*1024
-			
-		odrivefile.currentquota=[int(float(total[:-1]))*1024*1024*1024,free]
+		try:	
+			x=commands.getstatusoutput('onedrive-cli quota')[1].strip().split('\n')
+			a=x[0].find(':')
+			free=x[0][a+2:]
+			b=x[1].find(':')
+			total=x[1][b+2:]
+			if free[-1]=='G':
+				free=int(float(free[:-1]))*1024*1024*1024
+			elif free[-1]=='M':
+				free=int(float(free[:-1]))*1024*1024
+				
+			odrivefile.currentquota=[int(float(total[:-1]))*1024*1024*1024,free]
+		except:
+			print("onedrive quota could'nt be updated")
+			odrivefile.currentquota[0,0]	
 		
 
 
@@ -509,11 +536,13 @@ class odrivefile(file):
 					print(x)
 			odrivefile.download()
 		'''	
+
 	def delete(self):
 		try:	
 			os.system("onedrive-cli rm '"+self.address+"'")
 		except Exception,e:
 			print "error deleting file"		
+
 	@staticmethod
 	def printfilelist():
 		if odrivefile.listupdated==False:
@@ -639,21 +668,14 @@ class dropboxfile(file):
 	
 	def download(self,add=None):
 		if dropboxfile.authorized==False :
-			return None
-		try:
-			if '/' in self.address:
-				i=self.address.rfind('/')
-				filename=self.address[i+1:]
-			else:
-				filename=self.address			
-			f, metadata = dropboxfile.client.get_file_and_metadata(filename)
-		except TypeError:
-			file.found=0
+			return None		
+		f, metadata = dropboxfile.client.get_file_and_metadata(self.address)
 		if add==None:#change here	
 			add=main1()			
-		out = open(add+"/"+ntpath.basename(filename), 'wb')
+		out = open(add+"/"+ntpath.basename(self.address), 'wb')
 		out.write(f.read())
 		out.close()
+
 	def delete(self):
 		try:
 			dropboxfile.client.file_delete(self.address)	
@@ -661,6 +683,7 @@ class dropboxfile(file):
 			print "error occured deleting dropboxfile"	
 
 			
+
 	@staticmethod
 	def makefilelist(add,finallist):
 		if dropboxfile.authorized==False:
@@ -702,14 +725,19 @@ class dropboxfile(file):
 
 	@staticmethod
 	def quota():
-		if dropboxfile.authorized==None:
-			print "Dropbox not authorized"
-			return None
-		else:
-			print ("shared : " +str(dropboxfile.account['quota_info']['shared']))
-			print ("quota  : " +str(dropboxfile.account['quota_info']['quota']))
-			print ("normal : " +str(dropboxfile.account['quota_info']['normal']))	
-		currentquota=(int(dropboxfile.account['quota_info']['normal']),int(dropboxfile.account['quota_info']['normal'])-int(dropboxfile.account['quota_info']['quota']))
+		try:
+			dropboxfile.currentquota=None
+			if dropboxfile.authorized==None:
+				print "Dropbox not authorized"
+				return None
+			else:
+				print ("shared : " +str(dropboxfile.account['quota_info']['shared']))
+				print ("quota  : " +str(dropboxfile.account['quota_info']['quota']))
+				print ("normal : " +str(dropboxfile.account['quota_info']['normal']))	
+			dropboxfile.currentquota=(int(dropboxfile.account['quota_info']['normal']),int(dropboxfile.account['quota_info']['quota'])-int(dropboxfile.account['quota_info']['normal']))
+		except:
+			print "dropbox quota could'nt be updated"
+			dropboxfile.currentquota[0,0]	
 	@staticmethod
 	def printlist(add):
 		if dropboxfile.authorized==False:
@@ -732,7 +760,7 @@ class FinalList:
 		self.finallist={}
 	def update(self):
 		if gdrivefile.tobeauthorized==True:
-			if True:
+			try:
 				gdrivefile.authorize()
 				gdrivefile.updatefilelist()
 				gdrivefile.makefinallist(self.finallist,gdrivefile.filelist)
@@ -740,8 +768,10 @@ class FinalList:
 				#gdrivefile.currentquota=[1,4*1024*1024]				
 				storelist.append(gdrivefile.currentquota[1])
 
-			else:
+			except:
 				print "Could not make filelist"
+		else:
+			gdrivefile.currentquota=[0,0]		
 		if dropboxfile.tobeauthorized==True:
 			try:
 				dropboxfile.authorize()
@@ -752,6 +782,9 @@ class FinalList:
 				storelist.append(dropboxfile.currentquota[1])
 			except:
 				print "Could not make filelist"
+		else:
+			dropboxfile.currentquota=[0,0]
+					
 		if odrivefile.tobeauthorized==True:
 			try:
 				odrivefile.authorize()
@@ -763,6 +796,8 @@ class FinalList:
 				storelist.append(odrivefile.currentquota[1])
 			except:
 				print "Could not make filelist"
+		else:
+			odrivefile.currentquota=[0,0]		
 		#totalfreespace=sum(storelist)	CHANGE HERE	
 	def printaddress(self):
 		for a,b in self.finallist.items():
@@ -771,12 +806,7 @@ class FinalList:
 		#filename=raw_input("Name of file").strip()
 		self.finallist[filename].download()		
 #to update the storelist
-def updatestorelist():
-	gdrivefile.getquota()
-	odrivefile.onedrivequota()
-	dropboxfile.quota()
-	storelist=[gdrivefile.currentquota[1],odrivefile.currentquota[1],dropboxfile.currentquota[1]]
-				
+
 
 '''--------------------CODE FOR GUI STARTS HERE---------------------------'''					
 main=None
@@ -829,8 +859,9 @@ def process_folderpagelist():
 					for k in folderpagelist[srcdirname].iconlist:
 						if k.name==srcname:
 							folderpagelist[srcdirname].iconlist.remove(k)
+							k.isdeleted=True
 							trash.iconlist.append(k)
-							trash.page_list.append(folderpagelist[a+"/"])
+							trash.page_list.update({a+"/":folderpagelist[a+"/"]})
 							del folderpagelist[a+"/"]
 			else:
 				i=a.rfind("/")
@@ -859,6 +890,7 @@ class page(QWidget):
 	def newfolder(self):
 		tmpfolder=foldericon(self,"Untitled")
 		tmpfolder.is_new=True
+		#newpage=page("") change here
 		self.iconlist.append(tmpfolder)
 		yo(folderpagelist,self.windowtitle)
 		#code for context menu
@@ -884,17 +916,17 @@ class page(QWidget):
 		self.iconlist.remove(icon)
 		saved_list.update({icon.ad+icon.name:"*trashed#"})
 		pickle.dump(saved_list,open('workfile.pkl','wb'))
-		yo(folderpagelist,self.windowtitle)
+		yo(folderpagelist,icon.ad)#change here
 	def deletef(self,icon):
+		icon.isdeleted=True
 		trash.iconlist.append(icon)
 		self.iconlist.remove(icon)
-		for k in folderpagelist.keys():
-			if k==icon.ad+icon.name+"/":
-				trash.page_list.append(folderpagelist[k])
-				del folderpagelist[k]
+		k=icon.ad+icon.name+"/"
+		trash.page_list.update({k:folderpagelist[k]})#change here
+		del folderpagelist[k]
 		saved_list.update({icon.ad+icon.name:"*trashedf#"})
 		pickle.dump(saved_list,open('workfile.pkl','wb'))		
-		yo(folderpagelist,self.windowtitle)
+		yo(folderpagelist,icon.ad)#change here
 
 def yo(folderpagelist,address):
 	main.clear(main.mainLayout)
@@ -904,24 +936,39 @@ def yo(folderpagelist,address):
 class Trash(page):
 	def __init__(self,add):
 		super(Trash,self).__init__(add)
-		self.page_list=[]
+		self.page_list={}
 	def restore(self,icon):
-		if icon.ad in folderpagelist.keys():
-			folderpagelist[icon.ad].iconlist.append(icon)
-			trash.iconlist.remove(icon)
-			del saved_list[icon.ad+icon.name]#think about it
-			pickle.dump(saved_list,open('workfile.pkl','wb'))			
-			yo(folderpagelist,"/Trash/")
+		if icon.isdeleted:
+			if icon.ad in folderpagelist.keys():
+				folderpagelist[icon.ad].iconlist.append(icon)
+				self.iconlist.remove(icon)
+				del saved_list[icon.ad+icon.name]
+				pickle.dump(saved_list,open('workfile.pkl','wb'))			
+				yo(folderpagelist,"/Trash/")
+				icon.isdeleted=False
+		else:
+			print "file not deleted"		
 	def restoref(self,icon):
-		if icon.ad in folderpagelist.keys():
-			for b in self.page_list:
-				if b.windowtitle==icon.ad+icon.name+"/":
-					folderpagelist.update({icon.ad+icon.name+"/":b})
-			self.iconlist.remove(icon)
-			del saved_list[icon.ad+icon.name]#think about it
-			folderpagelist[icon.ad].iconlist.append(icon)
-			pickle.dump(saved_list,open('workfile.pkl','wb'))			
-			yo(folderpagelist,"/Trash/")
+		if icon.isdeleted:
+			if icon.ad in folderpagelist.keys():
+				'''
+				for b in self.page_list:
+					if b.windowtitle==icon.ad+icon.name+"/":
+						folderpagelist.update({icon.ad+icon.name+"/":b})
+				'''
+				folderpagelist.update({icon.ad+icon.name+"/":self.page_list[icon.ad+icon.name+"/"]})
+				print "added to folderpagelist"		
+				self.iconlist.remove(icon)#remove from iconlist
+				print "removed from iconlist"
+				del self.page_list[icon.ad+icon.name+"/"]#delete from page_list
+				print "print removed frm sel.page_list"
+				del saved_list[icon.ad+icon.name]
+				folderpagelist[icon.ad].iconlist.append(icon)#add into iconlist of dest folder
+				icon.isdeleted=False
+				pickle.dump(saved_list,open('workfile.pkl','wb'))			
+				yo(folderpagelist,"/Trash/")
+		else:
+			print "file not deleted"		
 
 class icon(QLabel):
 	def __init__(self,page,name,imgadd):#decide whether you want to have a variable or just a common address
@@ -952,6 +999,7 @@ class icon(QLabel):
 		self.new_label.returnPressed.connect(self.new_fol)
 		#txtlabel.setFixedSize(130,10)
 		#txtlabel.setStyleSheet("QWidget {background-color:blue}")
+		self.isdeleted=False#change hre
 		nname=name
 		if len(name)>15:
 			nname=name[:11]+"..."
@@ -1011,7 +1059,7 @@ class icon(QLabel):
 	
 
 	def leftclickevent(self):
-		self.txtlabel.setText(self.name) 
+		pass 
 	def rightclickevent(self):
 		pass			
 	def doubleclickevent(self):
@@ -1028,17 +1076,20 @@ class icon(QLabel):
 
 class foldericon(icon):
 	def __init__(self,page,name):
-		super(foldericon,self).__init__(page,name,'/home/trueutkarsh/Pictures/downloadfolderfinal.png')
+		super(foldericon,self).__init__(page,name,'downloadfolderfinal.png')
+		#self.isdeleted=False
 	def gotclickedevent(self,event):
 		super(foldericon,self).gotclickedevent(event)
 	def doubleclickevent(self):
-		
-		main.clear(main.mainLayout)
-		#main.mainLayout.removeWidget(main.backbutton)
-		#main.mainLayout.removeWidget(main.scroll)
-		main.update(folderpagelist,self.ad+self.name+"/")
-		main.show()
-		main.curradd=self.ad+self.name+"/" 
+		if self.isdeleted==False:
+			main.clear(main.mainLayout)
+			#main.mainLayout.removeWidget(main.backbutton)
+			#main.mainLayout.removeWidget(main.scroll)
+			main.update(folderpagelist,self.ad+self.name+"/")
+			main.show()
+			main.curradd=self.ad+self.name+"/" 
+		else:
+			print "The folder cannot be accessed"
 
 	def contextMenuEvent(self, event):
 		#index = self.indexAt(event.pos())
@@ -1054,6 +1105,7 @@ class foldericon(icon):
 		restore.triggered.connect(lambda x:trash.restoref(self))
 		self.menu.popup(QCursor.pos())
 	def delete(self):
+		trash.restoref(self)
 		foldername=self.ad+self.name+"/"
 		for x in folderpagelist[foldername].iconlist:#delete each element
 			x.delete()
@@ -1061,9 +1113,10 @@ class foldericon(icon):
 		if foldername in saved_list.keys():#remove from saved_list
 			del saved_list[foldername]
 		yo(folderpagelist,main.curradd)
-		updatestorelist()		
+		updatestorelist()
+		totalfreespace=sum(storelist)		
 		pickle.dump(saved_list,open('workfile.pkl','wb'))#change here
-
+		print("delete folder"+ self.ad+self.name+"/")
 
 			
 
@@ -1073,7 +1126,7 @@ class foldericon(icon):
 class fileicon(icon):
 	def __init__(self,page,name):
 
-		super(fileicon,self).__init__(page,name,'/home/trueutkarsh/Pictures/documents.jpg') 
+		super(fileicon,self).__init__(page,name,'documents.jpg') 
 	def contextMenuEvent(self, event):
 		#index = self.indexAt(event.pos())
 		self.menu = QMenu()
@@ -1087,7 +1140,9 @@ class fileicon(icon):
 		self.menu.addAction(Download)
 		self.menu.addAction(cut)
 		self.menu.addAction(delete)
+
 		#self.menu.addAction(permdel)
+
 		restore=QAction('Restore',self)
 		self.menu.addAction(restore)
 		restore.triggered.connect(lambda x:trash.restore(self))
@@ -1095,9 +1150,11 @@ class fileicon(icon):
 		cut.triggered.connect(lambda x:folderpagelist[main.curradd].cut(self))#change here
 		paste.triggered.connect(lambda x:main.paste())
 		delete.triggered.connect(lambda x:folderpagelist[main.curradd].delete(self))
+
 		#permdel.triggered.connect(lambda x:self.delete())
 		self.menu.popup(QCursor.pos())
 	def delete(self):
+		trash.restore(self)
 		#delete the file
 		File.finallist[self.name].delete()
 		#delete the file from finallist
@@ -1105,14 +1162,17 @@ class fileicon(icon):
 		del File.finallist[self.name]
 		print "removed from finallist"
 		#remove from folderpagelist
-		del saved_list[self.ad+self.name]
-		print "deleted from saved_list"
-		folderpagelist[self.ad].iconlist.remove(self)
-		print "removed icon"
-		yo(folderpagelist,self.ad)
-		updatestorelist()
-		pickle.dump(saved_list,open('workfile.pkl','wb'))#change it
 
+		#del saved_list[self.ad+self.name]
+		print "deleted from saved_list"
+		if self in folderpagelist[self.ad].iconlist:
+			folderpagelist[self.ad].iconlist.remove(self)
+		print "removed icon"
+		yo(folderpagelist,main.curradd)
+		updatestorelist()
+		totalfreespace=sum(storelist)
+		pickle.dump(saved_list,open('workfile.pkl','wb'))#change it
+		print("deleted file "+self.ad+self.name)
 
 def makebrowser(address,folderpagelist,currpage):
 	num=address.count('/')
@@ -1407,7 +1467,7 @@ def cannotbeuploaded(filesize):#to check whther file can be uploaded
 				break
 			else:
 				trash.iconlist[-1].delete()#delete the last putted icon
-				trash.iconlist.pop()
+				#trash.iconlist.pop()
 			if sum(storelist)>=filesize:#free space greater than filesize
 				needfreespace=False
 		if needfreespace:#still free space not sufficient to upload a file
@@ -1429,7 +1489,7 @@ def upload(storelist,addfile=None,bigdfile=None):
 	#ssplitsize=2
 	iscorrect=True
 	isfilesplitted=False
-	try :
+	if True :
 		if cannotbeuploaded(filesize):
 			print("File size too large.Insufficient space")
 			print("total spcae="+str(totalfreespace)+"filesize= "+str(filesize))
@@ -1608,12 +1668,18 @@ def upload(storelist,addfile=None,bigdfile=None):
 								else:
 									print("Unusual error please close the program and contact developers.")	
 									iscorrect=False	
-								print("totalfreespace free space now is="+str(sum(storelist)))		
+								print("totalfreespace free space now is="+str(sum(storelist)))
+	else:
+		print("Sorry the action was unsuccessful.File size could'nt be uploaded.Please free your drive or check your connection")
+		iscorrect=False
+									
+		'''					
 	except Exception, e:
 		print(str(Exception))
 		print(str(e))
 		print("Sorry the action was unsuccessful.File size could'nt be uploaded.Please free your drive or check your connection")
-		iscorrect=False																	
+		iscorrect=False	
+		'''													
 		
 	if iscorrect:
 		if isfilesplitted:	
@@ -1708,8 +1774,7 @@ def trydistributedupload():
 	shutil.rmtree("largefile")#DO SOMETHING ABOUT IT
 	print(os.listdir(os.getcwd()))		
 	return dfile	
-'''
-'''-----------------------------------CODE FOR UPLOAD ENDS HERE---------------------------------------------'''
+'''#-----------------------------------CODE FOR UPLOAD ENDS HERE---------------------------------------------#
 #imgadd='/home/trueutkarsh/Pictures/downloadfolderfinal.png'
 #File.printaddress()#-TO PRINT FINAL LIST  UNCOMMENT THIS LINE
 '''-------CODE GOR TESTING UPLOAD
@@ -1734,6 +1799,7 @@ splash=None
 mmain2=None
 status=None
 w=page("/Home/")
+saved_pass={'pass':None}
 folderpagelist={}
 folderpagelist.update({"/Home/":w})
 trash=Trash("/Trash/")
@@ -1751,12 +1817,28 @@ try:
 except:
 	pickle.dump(stray_list,open('workfile.pkl','wb'))
 	saved_list=pickle.load(open('workfile.pkl','rb'))	
+try:
+	saved_pass=pickle.load(open('password.pkl','rb'))
+except:
+	pickle.dump(saved_pass,open('password.pkl','wb'))
 '''----------------------CODE FOR WELCOME SCREEN--------------------------'''
+class textbox(QLineEdit):
+	def focusInEvent(self,event):
+		if mmain2.ul.text()!='':
+			if str(mmain2.ul.text())+"/g" in saved_pass.keys():
+				mmain2.pl.setText(saved_pass[str(mmain2.ul.text())+"/g"])
+		if mmain2.oul.text()!='':
+			if str(mmain2.oul.text())+"/o" in saved_pass.keys():
+				mmain2.opl.setText(saved_pass[str(mmain2.oul.text())+"/o"])
+		if mmain2.dul.text()!='':
+			if str(mmain2.dul.text())+"/d" in saved_pass.keys():
+				mmain2.dpl.setText(saved_pass[str(mmain2.dul.text())+"/d"])
+
 class Welcome(QMainWindow):
 	def __init__(self,parent=None):
 		super(Welcome, self).__init__(parent)
 		self.centralwidget=QWidget()
-		self.centralwidget.setFixedSize(250,300)
+		self.centralwidget.setFixedSize(250,400)
 		self.layout=QVBoxLayout()
 		Question=QLabel()
 		Question.setText("What do you want to sync?")
@@ -1774,19 +1856,29 @@ class Welcome(QMainWindow):
 		passw=QLabel()
 		passw.setFixedSize(70,10)
 		passw.setText("Password")
-		self.ul=QLineEdit()
+		self.ul=textbox()
 		self.ul.setEnabled(False)
-		self.pl=QLineEdit()
+		#self.ul.setFixedSize(140,20)
+		self.pl=textbox()
 		self.pl.setEnabled(False)
+		#self.pl.setFixedSize(140,20)
+		self.pl.setEchoMode(QLineEdit.Password)
 		gu.addWidget(usrname)
 		gu.addWidget(self.ul)
 		gp.addWidget(passw)
 		gp.addWidget(self.pl)
+		grpl=QHBoxLayout()
+		self.grp=QCheckBox('Remember password')
+		self.grp.setFixedSize(170,15)
+		self.grp.setEnabled(False)
+		grpl.addWidget(self.grp)
 		gv.addItem(gu)
 		gv.addItem(gp)
+		#gv.addItem(grpl)
 		gh.addItem(gv)
 		gh.addStretch(40)
 		self.layout.addItem(gh)
+		self.layout.addItem(grpl)
 		gcb.stateChanged.connect(self.gfunc)
 		dcb=QCheckBox('Dropbox')
 		self.layout.addWidget(dcb)		
@@ -1801,10 +1893,11 @@ class Welcome(QMainWindow):
 		passw=QLabel()
 		passw.setFixedSize(70,10)
 		passw.setText("Password")
-		self.dul=QLineEdit()
+		self.dul=textbox()
 		self.dul.setEnabled(False)
-		self.dpl=QLineEdit()
+		self.dpl=textbox()
 		self.dpl.setEnabled(False)
+		self.dpl.setEchoMode(QLineEdit.Password)
 		du.addWidget(usrname)
 		du.addWidget(self.dul)
 		dp.addWidget(passw)
@@ -1812,8 +1905,14 @@ class Welcome(QMainWindow):
 		dv.addItem(du)
 		dv.addItem(dp)
 		dh.addItem(dv)
+		drpl=QHBoxLayout()
+		self.drp=QCheckBox('Remember password')
+		self.drp.setFixedSize(170,15)
+		self.drp.setEnabled(False)
+		drpl.addWidget(self.drp)		
 		dh.addStretch(40)
 		self.layout.addItem(dh)
+		self.layout.addItem(drpl)
 		dcb.stateChanged.connect(self.dfunc)
 		ocb=QCheckBox('Onedrive')
 		self.layout.addWidget(ocb)		
@@ -1828,10 +1927,11 @@ class Welcome(QMainWindow):
 		passw=QLabel()
 		passw.setFixedSize(70,10)
 		passw.setText("Password")
-		self.oul=QLineEdit()
+		self.oul=textbox()
 		self.oul.setEnabled(False)
-		self.opl=QLineEdit()
+		self.opl=textbox()
 		self.opl.setEnabled(False)
+		self.opl.setEchoMode(QLineEdit.Password)
 		ou.addWidget(usrname)
 		ou.addWidget(self.oul)
 		op.addWidget(passw)
@@ -1839,9 +1939,18 @@ class Welcome(QMainWindow):
 		ov.addItem(ou)
 		ov.addItem(op)
 		oh.addItem(ov)
+		orpl=QHBoxLayout()
+		self.orp=QCheckBox('Remember password')
+		self.orp.setFixedSize(170,15)
+		self.orp.setEnabled(False)
+		orpl.addWidget(self.orp)
 		oh.addStretch(40)
 		self.layout.addItem(oh)
+		self.layout.addItem(orpl)
 		ocb.stateChanged.connect(self.ofunc)
+		self.orp.stateChanged.connect(self.rofunc)
+		self.grp.stateChanged.connect(self.rgfunc)
+		self.drp.stateChanged.connect(self.rdfunc)
 		self.button=QPushButton()
 		self.button.setText("Done")
 		self.button.clicked.connect(self.insert)
@@ -1884,30 +1993,72 @@ class Welcome(QMainWindow):
 		if state==Qt.Checked:
 			self.ul.setEnabled(True)
 			self.pl.setEnabled(True)
+			self.grp.setEnabled(True)
 		else:
 			self.ul.setEnabled(False)
 			self.pl.setEnabled(False)
+			self.grp.setEnabled(False)
 			self.ul.setText('')
 			self.pl.setText('')			
 	def dfunc(self,state):
 		if state==Qt.Checked:
 			self.dul.setEnabled(True)
 			self.dpl.setEnabled(True)
+			self.drp.setEnabled(True)
 		else:
 			self.dul.setEnabled(False)
 			self.dpl.setEnabled(False)
+			self.drp.setEnabled(False)
 			self.dul.setText('')
 			self.dpl.setText('')	
 	def ofunc(self,state):
 		if state==Qt.Checked:
 			self.oul.setEnabled(True)
 			self.opl.setEnabled(True)
+			self.orp.setEnabled(True)
 		else:
 			self.oul.setEnabled(False)
 			self.opl.setEnabled(False)
+			self.orp.setEnabled(False)
 			self.oul.setText('')
 			self.opl.setText('')
-		'''				  
+	def rofunc(self,state):
+		if self.oul.text()==''or self.opl.text()=='':
+			self.orp.setCheckState(Qt.Unchecked)
+			return
+		else:
+			if state==Qt.Checked:
+				if str(self.oul.text())+"/o" in saved_pass.keys():
+					if str(self.opl.text()) != saved_pass[str(self.oul.text())+"/o"]:
+						saved_pass[str(self.oul.text())+"/o"]=str(self.opl.text())
+				else:
+					saved_pass.update({str(self.oul.text())+"/o":str(self.opl.text())})
+				pickle.dump(saved_pass,open("password.pkl","wb"))
+	def rgfunc(self,state):
+		if self.ul.text()==''or self.pl.text()=='':
+			self.grp.setCheckState(Qt.Unchecked)
+			return
+		else:
+			if state==Qt.Checked:
+				if str(self.ul.text())+"/g" in saved_pass.keys():
+					if str(self.pl.text())!= saved_pass[str(self.ul.text())+"/g"]:
+						saved_pass[str(self.ul.text())+"/g"]=str(self.pl.text())
+				else:
+					saved_pass.update({str(self.ul.text())+"/g":str(self.pl.text())})
+				pickle.dump(saved_pass,open("password.pkl","wb"))
+	def rdfunc(self,state):
+		if self.dul.text()==''or self.dpl.text()=='':
+			self.drp.setCheckState(Qt.Unchecked)
+			return
+		else:
+			if state==Qt.Checked:
+				if str(self.dul.text())+"/d" in saved_pass.keys():
+					if str(self.dpl.text())!= saved_pass[str(self.dul.text())+"/d"]:
+						saved_pass[str(self.dul.text())+"/d"]=str(self.dpl.text())
+				else:
+					saved_pass.update({str(self.dul.text())+"/d":str(self.dpl.text())})
+				pickle.dump(saved_pass,open("password.pkl","wb"))
+		'''					
 
 class start_screen(QLabel):
 	def __init__(self,parent=None):
@@ -1934,7 +2085,39 @@ status=abc.exec_()
 
 
 
+'''
+gdrivefile.authorize()
+dropboxfile.authorize()
 
+odrivefile.authorize()
+>>>>>>> origin/master
+odrivefile.updatefilelist()
+gdrivefile.updatefilelist()
+finallist={}
+folder=[]
+#Code to print file list of dropbox. 
+#dropboxfile.printlist("/")
+odrivefile.makefinallist(finallist,odrivefile.filelist,folder)
+gdrivefile.makefinallist(finallist,gdrivefile.filelist)
+dropboxfile.makefilelist(add,finallist)
+for a,b in finallist.items():
+	print(a,b.address)
+filename=''	
+while filename!='exit':	
+	filename=raw_input("Enter filename(exit to exit)").strip()
+	finallist[filename].download()	
+
+gdrivefile.updatefilelist()
+for x in gdrivefile.filelist:
+	print x['title']
+
+<<<<<<< HEAD
+#print(templink)
+
+for line in templink:
+	print(line+'we did it')
+'''
+	
 '''-------------------------WRITE BUGS/'IMPROVEMENT TO BE MADE' HERE-------------------------------------------
 1.File name anywhere should not contain "'"	
 2.If any change has been made to such as download or upload of a file,filelist should be update there for that file.not complete
