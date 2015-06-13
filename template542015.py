@@ -785,7 +785,7 @@ class FinalList:
 				add='/'
 				dropboxfile.makefilelist(add,self.finallist)
 				dropboxfile.quota()
-				dropboxfile.currentquota=[3,6*1024*1024]
+				#dropboxfile.currentquota=[3,6*1024*1024]
 				storelist.append(dropboxfile.currentquota[1])
 			except:
 				print "Could not make filelist"
@@ -799,7 +799,7 @@ class FinalList:
 				folder=[]
 				odrivefile.makefinallist(self.finallist,odrivefile.filelist,folder)
 				odrivefile.onedrivequota()
-				odrivefile.currentquota=[2,6*1024*1024]
+				#odrivefile.currentquota=[2,6*1024*1024]
 				storelist.append(odrivefile.currentquota[1])
 
 			except:
