@@ -785,7 +785,7 @@ class FinalList:
 				add='/'
 				dropboxfile.makefilelist(add,self.finallist)
 				dropboxfile.quota()
-				#dropboxfile.currentquota=[3,6*1024*1024]
+				dropboxfile.currentquota=[3,6*1024*1024]
 				storelist.append(dropboxfile.currentquota[1])
 			except:
 				print "Could not make filelist"
@@ -793,18 +793,18 @@ class FinalList:
 			dropboxfile.currentquota=[0,0]
 					
 		if odrivefile.tobeauthorized==True:
-			if True:
+			try:
 				odrivefile.authorize()
 				odrivefile.updatefilelist()
 				folder=[]
 				odrivefile.makefinallist(self.finallist,odrivefile.filelist,folder)
 				odrivefile.onedrivequota()
-				#odrivefile.currentquota=[2,6*1024*1024]
+				odrivefile.currentquota=[2,6*1024*1024]
 				storelist.append(odrivefile.currentquota[1])
-			'''	
+
 			except:
 				print "Could not make filelist"
-			'''	
+	
 		else:
 			odrivefile.currentquota=[0,0]		
 		#totalfreespace=sum(storelist)	CHANGE HERE	
@@ -814,6 +814,7 @@ class FinalList:
 	def download(self,filename):
 		#filename=raw_input("Name of file").strip()
 		self.finallist[filename].download()		
+
 #to update the storelist
 
 
