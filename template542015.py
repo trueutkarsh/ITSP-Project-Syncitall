@@ -505,12 +505,13 @@ class odrivefile(file):
 			i=self.address.rfind('/')
 			filename=self.address[i+1:]
 		else:
-			filename=self.address	
+			filename=self.address
+
 		downloadedfile=open(filename,"wb")#open the final file
 		#ofile2download=raw_input("Enter address of file on one drive with format folder1/folder2..../filename").strip()
 		ofile2download=self.address
 		#make something so it can get to his file easily(presently avoid folders)
-		tempcontent=commands.getstatusoutput("onedrive-cli get '"+filename+"'")
+		tempcontent=commands.getstatusoutput("onedrive-cli get '"+self.address+"'")
 		downloadedfile.write(tempcontent[1])
 		src=os.getcwd()+'/'+filename
 
@@ -583,7 +584,12 @@ class odrivefile(file):
 		nfilelist=filter(lambda x:'$x' not in x,filelist)#file with no names of distributed file
 		for name in nfilelist:
 			#name.replace(' ','\ ')
-			tempcontent=commands.getstatusoutput("onedrive-cli info '"+name+"'")[1]
+			prevfolder=""
+			for x in folderlist:
+				prevfolder=prevfolder+x
+
+			tempcontent=""
+			tempcontent=commands.getstatusoutput("onedrive-cli info '"+prevfolder+name+"'")[1]					
 			#print(tempcontent)	
 			typestrt=tempcontent.find('type:')
 			typend=tempcontent[typestrt:].find('\n')
@@ -592,6 +598,7 @@ class odrivefile(file):
 				#print('PROBLEM HERE')			
 			if filetype=='folder' or filetype=='album':
 				folderlist.append(name+'/')
+				foldername=""
 				for x in folderlist:
 					foldername=foldername+x
 				print(foldername)
@@ -600,14 +607,14 @@ class odrivefile(file):
 				templist=templistcontent.split('\n')
 				for x in range(len(templist)):
 					templist[x]=templist[x][2:]
-				for x in templist:
-					print(foldername+x)					
+				print (templist)					
 				odrivefile.makefinallist(finallist,templist,folderlist)
 	
 			else:
 				foldername='/'
 				for x in folderlist:
 					foldername=foldername+x
+				print("file name is"+ foldername+name)	
 				tmpodrivefile=odrivefile(foldername+name)
 				#y={name:tmpodrivefile}
 				finallist.update({name:tmpodrivefile})
@@ -794,8 +801,10 @@ class FinalList:
 				odrivefile.onedrivequota()
 				#odrivefile.currentquota=[2,6*1024*1024]
 				storelist.append(odrivefile.currentquota[1])
+
 			except:
 				print "Could not make filelist"
+	
 		else:
 			odrivefile.currentquota=[0,0]		
 		#totalfreespace=sum(storelist)	CHANGE HERE	
@@ -805,6 +814,7 @@ class FinalList:
 	def download(self,filename):
 		#filename=raw_input("Name of file").strip()
 		self.finallist[filename].download()		
+
 #to update the storelist
 
 
@@ -1458,7 +1468,7 @@ class distributedfile():
 			x.delete()
 
 def cannotbeuploaded(filesize):#to check whther file can be uploaded
-	if filesize<totalfreespace:
+	if filesize<sum(storelist):#change here
 		return False
 	else:
 		needfreespace=True
