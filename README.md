@@ -9,3 +9,8 @@ The official documentation can be found here:
 For slides/presentation :
 
 "http://www.slideshare.net/AakashPraliya1/syncitall"
+
+
+
+![Main Window](https://raw.githubusercontent.com/Aakash1312/test/master/2015-06-05-225857_1366x768_scrot.png)
+![Welcome](https://raw.githubusercontent.com/Aakash1312/test/master/Screenshot.from.2015-06-05.22-37-06.png)
